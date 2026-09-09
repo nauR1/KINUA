@@ -11,6 +11,7 @@ from reportlab.platypus import (
     TableStyle,
     Image,
 )
+from .report_brand import apply_typography, brand_header, label, NAVY, TEAL, MINT, GRAY
 from .storage import LocalStorageProvider
 from .models import AssessmentMedia
 
@@ -59,10 +60,10 @@ def frame_image(path, media, frame):
 
     for a, b in edges:
         if a in points and b in points:
-            draw.line([xy(points[a]), xy(points[b])], fill="#00b4a0", width=3)
+            draw.line([xy(points[a]), xy(points[b])], fill=TEAL, width=3)
     for point in points.values():
         x, y = xy(point)
-        draw.ellipse((x - 3, y - 3, x + 3, y + 3), fill="#f6cb4e")
+        draw.ellipse((x - 3, y - 3, x + 3, y + 3), fill=MINT)
     buffer = io.BytesIO()
     picture.save(buffer, format="JPEG")
     buffer.seek(0)
@@ -96,7 +97,7 @@ def motion_chart(analysis):
             drawing.add(
                 PolyLine(
                     segment.copy(),
-                    strokeColor=colors.HexColor("#19877f"),
+                    strokeColor=colors.HexColor(TEAL),
                     strokeWidth=1.5,
                 )
             )
@@ -124,20 +125,25 @@ def make_pdf(snapshot: dict, db) -> bytes:
     doc = SimpleDocTemplate(
         output,
         pagesize=(21 * cm, 29.7 * cm),
+        title="KINUA - Relatório de avaliação corporal",
+        author="KINUA",
         rightMargin=1.8 * cm,
         leftMargin=1.8 * cm,
         topMargin=1.7 * cm,
         bottomMargin=1.7 * cm,
     )
     styles = getSampleStyleSheet()
-    styles["Title"].textColor = colors.HexColor("#123c42")
+    apply_typography(styles)
+    styles["Title"].textColor = colors.HexColor(NAVY)
 
     def p(value, style="BodyText"):
         return Paragraph(escape(str(value)).replace("\n", "<br/>"), styles[style])
 
     a = snapshot["assessment"]
     flow = [
-        p("BIOMETRIA · Avaliação corporal", "Title"),
+        brand_header(),
+        Spacer(1, 0.5 * cm),
+        p("Relatório de avaliação corporal", "Title"),
         p(snapshot["patient"]["name"], "Heading2"),
         p(
             "Data: "
@@ -145,7 +151,7 @@ def make_pdf(snapshot: dict, db) -> bytes:
             + " · Profissional: "
             + snapshot["professional"]
         ),
-        p("Tipo: " + a["kind"] + " · Estado: " + a["status"]),
+        p("Tipo: " + label(a["kind"]) + " · Estado: " + label(a["status"])),
         Spacer(1, 0.4 * cm),
         p(NOTICE),
     ]
@@ -208,10 +214,10 @@ def make_pdf(snapshot: dict, db) -> bytes:
         table.setStyle(
             TableStyle(
                 [
-                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#eaf3f3")),
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E9F8F4")),
                     ("VALIGN", (0, 0), (-1, -1), "TOP"),
                     ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
-                    ("LINEBELOW", (0, 0), (-1, -1), 0.3, colors.HexColor("#d9e3e4")),
+                    ("LINEBELOW", (0, 0), (-1, -1), 0.3, colors.HexColor(GRAY)),
                 ]
             )
         )
@@ -222,13 +228,15 @@ def make_pdf(snapshot: dict, db) -> bytes:
             flow.append(p(message))
         flow.append(p("Revisão profissional", "Heading3"))
         for finding in analysis["findings"]:
-            flow.append(p(finding["description"] + " Estado: " + finding["state"]))
+            flow.append(
+                p(finding["description"] + " Estado: " + label(finding["state"]))
+            )
             for review in finding["reviews"]:
                 flow.append(
                     p(
                         review["created_at"]
                         + " · "
-                        + review["state"]
+                        + label(review["state"])
                         + " · "
                         + review["note"]
                     )
@@ -250,7 +258,7 @@ def make_pdf(snapshot: dict, db) -> bytes:
             p("A: " + comparison["date_a"] + " · B: " + comparison["date_b"]),
             p(comparison["notice"]),
         ]
-        data = [[p("Medida"), p("A"), p("B"), p("B − A")]]
+        data = [[p("Medida"), p("A"), p("B"), p("B - A")]]
         for item in comparison["measurements"]:
 
             def number(value):
@@ -276,7 +284,7 @@ def make_pdf(snapshot: dict, db) -> bytes:
             TableStyle(
                 [
                     ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#eaf3f3")),
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E9F8F4")),
                     ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
                 ]
             )
@@ -290,9 +298,10 @@ def make_pdf(snapshot: dict, db) -> bytes:
     ]
 
     def footer(canvas, document):
-        canvas.setFont("Helvetica", 8)
+        canvas.setFont("Manrope", 8)
+        canvas.setFillColor(colors.HexColor(NAVY))
         canvas.drawString(
-            1.8 * cm, cm, "Biometria | " + a["id"] + " | Página " + str(document.page)
+            1.8 * cm, cm, "KINUA | " + a["id"] + " | Página " + str(document.page)
         )
 
     doc.build(flow, onFirstPage=footer, onLaterPages=footer)

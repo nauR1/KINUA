@@ -240,7 +240,7 @@ export default function MotionTimeline({
         />
         <path
           d={path(secondary)}
-          stroke="#c77934"
+          stroke="var(--chart-secondary)"
           fill="none"
           strokeWidth="2"
         />

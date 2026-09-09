@@ -47,10 +47,10 @@ export default function BodyMap({
             r="10"
             fill={
               selected === r.key
-                ? "#dba340"
+                ? "var(--chart-secondary)"
                 : findings.some((f) => f.region === r.key)
-                  ? "#19877f"
-                  : "#cad6d5"
+                  ? "var(--accent)"
+                  : "var(--line)"
             }
           />
         ))}

@@ -39,7 +39,7 @@ from .core.body_limit import BodyLimitMiddleware
 from .api_video import router as video_router
 from .services.comparison import compare
 
-app = FastAPI(title="Biometria API", version="2.0.1")
+app = FastAPI(title="KINUA API", version="2.1.0")
 app.include_router(video_router)
 
 
@@ -109,7 +109,7 @@ async def conflict(request, exc):
 @app.get("/health")
 def health(db: DBSession = Depends(get_db)):
     db.execute(select(1))
-    return {"status": "ok", "service": "biometria", "version": "2.0.1"}
+    return {"status": "ok", "service": "biometria", "version": "2.1.0"}
 
 
 @app.post("/auth/login")

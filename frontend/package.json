@@ -1,6 +1,6 @@
 {
-  "name": "biometria-frontend",
-  "version": "2.0.0",
+  "name": "kinua-frontend",
+  "version": "2.1.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "prepare:vision": "node scripts/prepare-vision.mjs",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "lint": "prettier --check app components lib vision e2e"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "0.10.32",
@@ -25,6 +26,7 @@
     "@types/react": "^19.1.12",
     "@types/react-dom": "^19.1.9",
     "esbuild": "^0.28.2",
+    "prettier": "3.6.2",
     "typescript": "^5.9.2",
     "vitest": "^5.0.0"
   }

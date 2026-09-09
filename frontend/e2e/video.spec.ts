@@ -17,9 +17,7 @@ test("record camera video, real server pose, timeline, review and PDF", async ({
     .getByLabel("Senha", { exact: true })
     .fill(process.env.E2E_PASSWORD!);
   await page.getByRole("button", { name: "Entrar na plataforma" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Visão geral" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Olá,/ })).toBeVisible();
   await page
     .getByRole("button", { name: "Nova avaliação", exact: true })
     .click();

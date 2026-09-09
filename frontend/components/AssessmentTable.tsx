@@ -1,5 +1,6 @@
 "use client";
-import { ClipboardList, ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
+import EmptyState from "./ui/EmptyState";
 import type { Patient, Assessment } from "@/lib/api";
 const statusLabels: Record<string, string> = {
   draft: "Em preparação",
@@ -24,11 +25,7 @@ export default function AssessmentTable({
 }) {
   if (!list.length)
     return (
-      <div className="empty">
-        <ClipboardList size={30} />
-        <h3>Nenhuma avaliação ainda</h3>
-        <p>Inicie uma avaliação para registrar a primeira captura.</p>
-      </div>
+      <EmptyState description="Inicie uma avaliação para registrar a primeira captura." />
     );
   return (
     <div className="table-wrap">

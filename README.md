@@ -1,4 +1,6 @@
-# Biometria
+# KINUA
+
+Inteligência em movimento humano. A versão 2.1 aplica a identidade KINUA ao login, navegação, painel, captura, resultados e relatórios, com SVGs nativos e fonte Manrope local. Veja [identidade e componentes](docs/kinua-brand.md). Diretórios e identificadores técnicos anteriores permanecem compatíveis; não é necessário migrar dados para esta atualização visual.
 
 Plataforma de avaliação corporal assistida para fisioterapeutas. Versão 2 executável de foto/webcam e vídeo, landmarks reais, medição geométrica 2D, revisão profissional e relatório PDF. **Não fornece diagnóstico automático e não está clinicamente validado. Use somente dados fictícios nesta versão de desenvolvimento.**
 

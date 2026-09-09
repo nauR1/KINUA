@@ -1,6 +1,8 @@
 "use client";
 import { useState } from "react";
-import { Activity, ArrowUpRight, ShieldCheck } from "lucide-react";
+import { ArrowUpRight, ShieldCheck } from "lucide-react";
+import KinuaLogo from "./brand/KinuaLogo";
+import MovementArt from "./brand/MovementArt";
 import { api, post } from "@/lib/api";
 type User = { id: string; name: string; email: string; role: string };
 export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
@@ -26,23 +28,21 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
   return (
     <main className="login-page">
       <section className="login-intro">
-        <div className="brand">
-          <span>
-            <Activity size={26} />
-          </span>
-          biometria.
-        </div>
-        <div>
-          <span className="eyebrow">AVALIAÇÃO CORPORAL ASSISTIDA</span>
+        <KinuaLogo theme="dark" size={206} showTagline />
+        <MovementArt className="login-art" />
+        <div className="login-message">
+          <span className="eyebrow">TECNOLOGIA. SAÚDE. MOVIMENTO HUMANO.</span>
           <h1>
-            Observe com precisão.
+            Pessoas em melhor
             <br />
-            Interprete com contexto.
+            movimento
+            <br />
+            vivem melhor.
           </h1>
           <p>
-            Captura, medidas e revisão profissional
+            Ciência hoje. Movimento sempre.
             <br />
-            em um único espaço clínico.
+            Mais precisão para o seu olhar clínico.
           </p>
           <div className="login-lines">
             <span>01 Capturar</span>
@@ -57,7 +57,7 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
       <section className="login-form">
         <div>
           <span className="eyebrow">ACESSO PROFISSIONAL</span>
-          <h2>Bem-vindo à sua clínica</h2>
+          <h2>Bem-vindo à KINUA</h2>
           <p className="muted">Entre com sua conta para continuar.</p>
           <form onSubmit={submit}>
             <label>

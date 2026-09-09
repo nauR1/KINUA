@@ -15,6 +15,9 @@ import {
   Sun,
   Moon,
   Camera,
+  PanelLeftClose,
+  PanelLeftOpen,
+  FileText,
 } from "lucide-react";
 import { api, post, type Patient, type Assessment } from "@/lib/api";
 import PatientForm from "@/components/PatientForm";
@@ -25,6 +28,10 @@ import AssessmentTable from "@/components/AssessmentTable";
 import SettingsView from "@/components/SettingsView";
 import Results from "@/components/Results";
 import Comparison from "@/components/Comparison";
+import KinuaLogo from "@/components/brand/KinuaLogo";
+import MovementArt from "@/components/brand/MovementArt";
+import MetricCard from "@/components/ui/MetricCard";
+import EmptyState from "@/components/ui/EmptyState";
 type User = { id: string; name: string; email: string; role: string };
 type Dashboard = {
   patients: number;
@@ -62,9 +69,14 @@ export default function Home() {
     [busy, setBusy] = useState(false),
     [newAssessment, setNewAssessment] = useState(false),
     [dark, setDark] = useState(false),
+    [collapsed, setCollapsed] = useState(false),
     [mode, setMode] = useState("camera"),
     [protocol, setProtocol] = useState("bilateral_squat");
   useEffect(() => {
+    try {
+      setDark(localStorage.getItem("kinua-theme") === "dark");
+      setCollapsed(localStorage.getItem("kinua-sidebar") === "collapsed");
+    } catch {}
     api<User>("/auth/me")
       .then(setUser)
       .catch(() => {})
@@ -164,7 +176,9 @@ export default function Home() {
   if (loading)
     return (
       <main className="loading-screen">
-        <Activity className="spin" />
+        <div className="brand-pulse">
+          <KinuaLogo variant="symbol" size={66} />
+        </div>
         <p>Carregando sua clínica…</p>
       </main>
     );
@@ -176,29 +190,57 @@ export default function Home() {
     assessment?.mode === "video" ? VideoCapture : Capture;
   const title =
     section === "dashboard"
-      ? "Visão geral"
+      ? "Início"
       : section === "patients"
         ? "Pacientes"
         : section === "analysis"
           ? "Avaliação corporal"
-          : section === "settings"
-            ? "Configurações"
-            : "Avaliações";
+          : section === "reports"
+            ? "Relatórios"
+            : section === "settings"
+              ? "Configurações"
+              : "Avaliações";
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${collapsed ? "sidebar-collapsed" : ""}`}>
+      <a className="skip-link" href="#main-content">
+        Ir para o conteúdo
+      </a>
       <aside className="sidebar">
-        <a className="brand" href="/" aria-label="Biometria, início">
-          <span>
-            <Activity size={24} />
-          </span>
-          biometria<span className="brand-dot">.</span>
+        <a className="brand" href="/" aria-label="KINUA, início">
+          <KinuaLogo
+            variant={collapsed ? "symbol" : "horizontal"}
+            theme="dark"
+            size={collapsed ? 38 : 174}
+          />
         </a>
+        <button
+          className="sidebar-collapse"
+          aria-label={collapsed ? "Expandir navegação" : "Recolher navegação"}
+          title={collapsed ? "Expandir navegação" : "Recolher navegação"}
+          onClick={() => {
+            setCollapsed(!collapsed);
+            try {
+              localStorage.setItem(
+                "kinua-sidebar",
+                collapsed ? "expanded" : "collapsed",
+              );
+            } catch {}
+          }}
+        >
+          {collapsed ? (
+            <PanelLeftOpen size={18} />
+          ) : (
+            <PanelLeftClose size={18} />
+          )}
+        </button>
         <div className="workspace-label">ESPAÇO CLÍNICO</div>
         <nav aria-label="Navegação principal">
           {[
-            ["dashboard", "Visão geral", LayoutDashboard],
+            ["dashboard", "Início", LayoutDashboard],
             ["patients", "Pacientes", Users],
             ["assessments", "Avaliações", ClipboardList],
+            ["analysis", "Análise", Activity],
+            ["reports", "Relatórios", FileText],
             ["settings", "Configurações", Settings],
           ].map(([key, label, Icon]) => {
             const I = Icon as typeof Activity;
@@ -206,10 +248,16 @@ export default function Home() {
               <button
                 key={key as string}
                 className={section === key ? "active" : ""}
-                onClick={() => navigate(key as string)}
+                aria-label={label as string}
+                title={label as string}
+                aria-current={section === key ? "page" : undefined}
+                onClick={() => {
+                  navigate(key as string);
+                  if (key === "analysis") setNewAssessment(true);
+                }}
               >
                 <I size={19} />
-                {label as string}
+                <span className="nav-label">{label as string}</span>
               </button>
             );
           })}
@@ -223,9 +271,19 @@ export default function Home() {
               <strong>Decisão profissional.</strong>
             </p>
           </div>
-          <button className="theme-toggle" onClick={() => setDark(!dark)}>
-            {dark ? <Sun size={18} /> : <Moon size={18} />}Tema{" "}
-            {dark ? "claro" : "escuro"}
+          <button
+            className="theme-toggle"
+            aria-label={dark ? "Tema claro" : "Tema escuro"}
+            title={dark ? "Tema claro" : "Tema escuro"}
+            onClick={() => {
+              setDark(!dark);
+              try {
+                localStorage.setItem("kinua-theme", dark ? "light" : "dark");
+              } catch {}
+            }}
+          >
+            {dark ? <Sun size={18} /> : <Moon size={18} />}
+            <span className="nav-label">Tema {dark ? "claro" : "escuro"}</span>
           </button>
           <div className="user-block">
             <span className="avatar">
@@ -248,27 +306,52 @@ export default function Home() {
           <span>
             Clínica <span className="breadcrumb">/ {title}</span>
           </span>
-          <span className="header-date">
-            {new Date().toLocaleDateString("pt-BR", {
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-            })}
-          </span>
+          <div className="header-tools">
+            <label className="search header-search">
+              <Search size={16} />
+              <input
+                aria-label="Busca rápida de pacientes"
+                placeholder="Buscar paciente…"
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  if (section !== "patients" || patient) navigate("patients");
+                }}
+              />
+            </label>
+            <span className="header-date">
+              {new Date().toLocaleDateString("pt-BR", {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              })}
+            </span>
+            <button
+              className="avatar header-profile"
+              aria-label="Abrir configurações da conta"
+              onClick={() => navigate("settings")}
+            >
+              {user.name.slice(0, 2).toUpperCase()}
+            </button>
+          </div>
         </header>
-        <main className="content">
+        <main className="content" id="main-content" tabIndex={-1}>
           {section !== "analysis" && (
             <div className="page-heading">
               <div>
                 <span className="eyebrow">
                   {section === "dashboard"
                     ? "SEU ESPAÇO DE AVALIAÇÃO"
-                    : "BIOMETRIA"}
+                    : "KINUA"}
                 </span>
-                <h1>{title}</h1>
+                <h1>
+                  {section === "dashboard"
+                    ? `Olá, ${user.name.split(" ")[0]}.`
+                    : title}
+                </h1>
                 <p>
                   {section === "dashboard"
-                    ? "Medidas objetivas. Contexto clínico. Acompanhamento contínuo."
+                    ? "Movimento gera novas possibilidades."
                     : section === "patients"
                       ? "Prontuários e histórico de avaliações da sua clínica."
                       : section === "assessments"
@@ -414,13 +497,12 @@ export default function Home() {
                 ].map(([value, label, Icon]) => {
                   const I = Icon as typeof Activity;
                   return (
-                    <div className="stat-card panel" key={label as string}>
-                      <div>
-                        <span>{label as string}</span>
-                        <I size={19} />
-                      </div>
-                      <strong>{value as number}</strong>
-                    </div>
+                    <MetricCard
+                      key={label as string}
+                      label={label as string}
+                      value={value as number}
+                      icon={I}
+                    />
                   );
                 })}
               </div>
@@ -476,14 +558,18 @@ export default function Home() {
                     </button>
                   ))}
                   {!patients.length && (
-                    <p className="muted">Nenhum paciente cadastrado.</p>
+                    <EmptyState
+                      title="Prontos para começar"
+                      description="Cadastre seu primeiro paciente e acompanhe cada movimento."
+                    />
                   )}
                 </section>
               </div>
               <div className="workflow-banner">
+                <MovementArt />
                 <div>
                   <span className="eyebrow">AVALIAÇÃO POSTURAL GUIADA</span>
-                  <h2>Uma captura. Medidas rastreáveis.</h2>
+                  <h2>Inteligência em movimento humano.</h2>
                   <p>
                     Registre as vistas, confira os landmarks e revise cada
                     medida.
@@ -604,7 +690,7 @@ export default function Home() {
                         <h3>
                           {query
                             ? "Nenhum resultado"
-                            : "Comece pelo primeiro paciente"}
+                            : "Seu primeiro movimento começa aqui."}
                         </h3>
                         <p>Os prontuários cadastrados aparecerão aqui.</p>
                       </div>
@@ -614,12 +700,20 @@ export default function Home() {
               )}
             </>
           )}
-          {section === "assessments" && (
+          {(section === "assessments" || section === "reports") && (
             <section className="panel">
-              <h2>Histórico por paciente</h2>
+              <h2>
+                {section === "reports"
+                  ? "Relatórios por paciente"
+                  : "Histórico por paciente"}
+              </h2>
               <p className="muted">
-                Selecione o paciente para consultar todas as suas avaliações.
+                Selecione o paciente para consultar suas avaliações, revisar os
+                resultados e gerar o relatório em PDF.
               </p>
+              {!patients.length && (
+                <EmptyState description="Os históricos e relatórios estarão disponíveis após a primeira avaliação." />
+              )}
               {patients.map((p) => (
                 <button
                   className="patient-link"
@@ -699,7 +793,7 @@ export default function Home() {
           )}
           {section === "settings" && <SettingsView user={user} />}
           <footer className="page-footer">
-            Biometria · Medição assistida em 2D{" "}
+            KINUA · Medição assistida em 2D{" "}
             <span>A interpretação final pertence ao profissional.</span>
           </footer>
         </main>
