@@ -36,8 +36,23 @@ from .storage import normalize_image, LocalStorageProvider
 from .reports import make_pdf
 from .clinical.engine import RULESET
 from .core.body_limit import BodyLimitMiddleware
+from .api_video import router as video_router
+from .services.comparison import compare
 
-app = FastAPI(title="Biometria API", version="1.0.0")
+app = FastAPI(title="Biometria API", version="2.0.0")
+app.include_router(video_router)
+
+
+@app.get("/comparisons")
+def comparison(
+    a: str,
+    b: str,
+    user: m.User = Depends(current_user),
+    db: DBSession = Depends(get_db),
+):
+    return compare(db, user, a, b)
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings().origins,
@@ -46,7 +61,9 @@ app.add_middleware(
     allow_headers=["Content-Type", "X-Requested-With"],
 )
 app.add_middleware(
-    BodyLimitMiddleware, max_bytes=settings().max_upload_bytes + 1024 * 1024
+    BodyLimitMiddleware,
+    max_bytes=settings().max_upload_bytes + 1024 * 1024,
+    video_bytes=settings().max_video_bytes + 1024 * 1024,
 )
 
 
@@ -63,7 +80,13 @@ async def protect(request: Request, call_next):
         content_length = request.headers.get("content-length")
         if content_length and (
             not content_length.isdigit()
-            or int(content_length) > settings().max_upload_bytes + 1024 * 1024
+            or int(content_length)
+            > (
+                settings().max_video_bytes
+                if request.url.path.endswith("/videos")
+                else settings().max_upload_bytes
+            )
+            + 1024 * 1024
         ):
             return JSONResponse(
                 {"detail": "Arquivo ou requisição excede o limite."}, status_code=413
@@ -86,7 +109,7 @@ async def conflict(request, exc):
 @app.get("/health")
 def health(db: DBSession = Depends(get_db)):
     db.execute(select(1))
-    return {"status": "ok", "service": "biometria", "version": "1.0.0"}
+    return {"status": "ok", "service": "biometria", "version": "2.0.0"}
 
 
 @app.post("/auth/login")
@@ -270,11 +293,6 @@ def create_assessment(
     db: DBSession = Depends(get_db),
 ):
     patient_for(db, body.patient_id, user)
-    if body.mode == "video":
-        raise HTTPException(
-            422,
-            "Análise de vídeo contínuo pertence à segunda entrega. Use câmera ou foto neste MVP.",
-        )
     assessment = m.Assessment(
         clinic_id=user.clinic_id, created_by=user.id, **body.model_dump()
     )
@@ -301,12 +319,21 @@ def update_assessment(
     user: m.User = Depends(current_user),
     db: DBSession = Depends(get_db),
 ):
-    assessment = assessment_for(db, assessment_id, user)
+    assessment = assessment_for(db, assessment_id, user, lock=True)
     if assessment.status == "completed":
         raise HTTPException(
             409, "Avaliação concluída é imutável. Crie um acompanhamento."
         )
     if body.status == "completed":
+        if db.scalar(
+            select(m.ProcessingJob).where(
+                m.ProcessingJob.assessment_id == assessment.id,
+                m.ProcessingJob.state.in_(["pending", "running"]),
+            )
+        ):
+            raise HTTPException(
+                409, "Aguarde ou cancele o processamento de vídeo antes de concluir."
+            )
         findings = db.scalars(
             select(m.AttentionFinding)
             .join(m.Analysis)
@@ -340,6 +367,8 @@ async def upload(
     assessment = assessment_for(db, assessment_id, user)
     if assessment.status == "completed":
         raise HTTPException(409, "Avaliação concluída.")
+    if assessment.mode == "video":
+        raise HTTPException(422, "Use upload de vídeo para este protocolo.")
     data = await file.read(settings().max_upload_bytes + 1)
     await file.close()
     if len(data) > settings().max_upload_bytes:
@@ -410,7 +439,7 @@ def review(
     if not finding:
         raise HTTPException(404, "Registro não encontrado.")
     analysis = db.get(m.Analysis, finding.analysis_id)
-    assessment = assessment_for(db, analysis.assessment_id, user)
+    assessment = assessment_for(db, analysis.assessment_id, user, lock=True)
     if assessment.status == "completed":
         raise HTTPException(409, "Avaliação concluída.")
     finding.state = body.state
@@ -427,6 +456,8 @@ def review(
 @app.get("/assessments/{assessment_id}/report")
 def report(
     assessment_id: str,
+    compare_to: str | None = None,
+    analysis_id: str | None = None,
     user: m.User = Depends(current_user),
     db: DBSession = Depends(get_db),
 ):
@@ -436,6 +467,25 @@ def report(
         "patient": row(patient_for(db, assessment.patient_id, user)),
         "professional": db.get(m.User, assessment.created_by).name,
     }
+    if compare_to:
+        target = db.get(m.Analysis, analysis_id) if analysis_id else None
+        if not target or target.assessment_id != assessment.id:
+            raise HTTPException(
+                422, "Selecione uma análise desta avaliação para comparar."
+            )
+        comparison = compare(db, user, compare_to, analysis_id)
+        if not comparison["comparable"]:
+            raise HTTPException(
+                422, "Capturas incompatíveis: " + ", ".join(comparison["reasons"])
+            )
+        prior = db.get(m.Analysis, compare_to)
+        snapshot["comparison"] = {
+            **comparison,
+            "analysis_a": compare_to,
+            "analysis_b": analysis_id,
+            "date_a": db.get(m.Assessment, prior.assessment_id).created_at.isoformat(),
+            "date_b": assessment.created_at.isoformat(),
+        }
     pdf = make_pdf(snapshot, db)
     record = m.Report(
         assessment_id=assessment.id,

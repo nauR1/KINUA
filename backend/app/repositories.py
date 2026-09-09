@@ -4,12 +4,15 @@ from sqlalchemy.orm import Session
 from .models import Assessment, Patient, User, AuditLog
 
 
-def assessment_for(db: Session, identifier: str, user: User) -> Assessment:
-    item = db.scalar(
-        select(Assessment).where(
-            Assessment.id == identifier, Assessment.clinic_id == user.clinic_id
-        )
+def assessment_for(
+    db: Session, identifier: str, user: User, lock: bool = False
+) -> Assessment:
+    query = select(Assessment).where(
+        Assessment.id == identifier, Assessment.clinic_id == user.clinic_id
     )
+    if lock:
+        query = query.with_for_update()
+    item = db.scalar(query.execution_options(populate_existing=True))
     if not item:
         raise HTTPException(404, "Avaliação não encontrada.")
     return item

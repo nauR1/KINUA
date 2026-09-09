@@ -27,8 +27,10 @@ class LocalStorageProvider:
             raise ValueError("Chave de armazenamento inválida")
         return target
 
-    def put(self, data: bytes) -> tuple[str, str]:
-        key = str(uuid.uuid4()) + ".jpg"
+    def put(self, data: bytes, extension: str = ".jpg") -> tuple[str, str]:
+        if extension not in (".jpg", ".mp4", ".webm"):
+            raise ValueError("Extensão inválida")
+        key = str(uuid.uuid4()) + extension
         with self.path(key).open("xb") as stream:
             stream.write(data)
         return key, hashlib.sha256(data).hexdigest()

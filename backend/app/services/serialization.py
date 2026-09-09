@@ -8,6 +8,7 @@ from ..models import (
     PoseFrame,
     PoseLandmark,
     ProfessionalReview,
+    ProcessingJob,
 )
 
 
@@ -55,16 +56,22 @@ def analysis_result(db, analysis):
         select(PoseFrame)
         .where(PoseFrame.analysis_id == analysis.id)
         .order_by(PoseFrame.frame_index)
-    )
+    ).all()
+    by_frame = {f.id: [] for f in frames}
+    if frames:
+        for landmark in db.scalars(
+            select(PoseLandmark).where(PoseLandmark.frame_id.in_(by_frame))
+        ):
+            by_frame[landmark.frame_id].append(
+                {
+                    key: getattr(landmark, key)
+                    for key in ("name", "x", "y", "z", "visibility")
+                }
+            )
     result["frames"] = [
         {
             **row(f),
-            "landmarks": [
-                row(p)
-                for p in db.scalars(
-                    select(PoseLandmark).where(PoseLandmark.frame_id == f.id)
-                )
-            ],
+            "landmarks": by_frame[f.id],
         }
         for f in frames
     ]
@@ -73,6 +80,14 @@ def analysis_result(db, analysis):
 
 def assessment_result(db, assessment):
     result = row(assessment)
+    result["jobs"] = [
+        row(j)
+        for j in db.scalars(
+            select(ProcessingJob)
+            .where(ProcessingJob.assessment_id == assessment.id)
+            .order_by(ProcessingJob.created_at)
+        )
+    ]
     result["analyses"] = [
         analysis_result(db, a)
         for a in db.scalars(

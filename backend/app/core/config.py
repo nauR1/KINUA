@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     secure_cookies: bool = False
     session_hours: int = 8
     max_upload_bytes: int = 20 * 1024 * 1024
+    max_video_bytes: int = 100 * 1024 * 1024
+    max_video_seconds: int = 60
+    pose_model_path: str = "./data/models/pose_landmarker_lite.task"
 
     @property
     def origins(self) -> list[str]:

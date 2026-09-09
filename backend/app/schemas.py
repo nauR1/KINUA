@@ -1,6 +1,6 @@
 from datetime import date
 from typing import Literal
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class StrictModel(BaseModel):
@@ -43,6 +43,27 @@ class AssessmentInput(StrictModel):
         "postural"
     )
     mode: Literal["photo", "camera", "video"] = "camera"
+    protocol: Literal["static", "bilateral_squat", "single_leg_squat", "arm_raise"] = (
+        "static"
+    )
+    side: Literal["bilateral", "left", "right"] = "bilateral"
+
+    @model_validator(mode="after")
+    def valid_protocol(self):
+        if self.mode == "video" and self.protocol == "static":
+            raise ValueError("Selecione um protocolo de movimento para vídeo.")
+        if self.mode != "video" and self.protocol != "static":
+            raise ValueError("Protocolos dinâmicos exigem vídeo.")
+        if self.protocol == "single_leg_squat" and self.side == "bilateral":
+            raise ValueError("Indique o lado de apoio do agachamento unipodal.")
+        return self
+
+
+class VideoJobInput(StrictModel):
+    media_id: str
+    fps: Literal[2, 5, 10] = 5
+    camera_level_confirmed: Literal[True]
+    view_confirmed: Literal[True]
 
 
 class AssessmentUpdate(StrictModel):

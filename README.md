@@ -1,6 +1,6 @@
 # Biometria
 
-Plataforma de avaliação corporal assistida para fisioterapeutas. MVP executável de foto/webcam, landmarks reais, medição geométrica 2D, revisão profissional e relatório PDF. **Não fornece diagnóstico automático e não está clinicamente validado. Use somente dados fictícios nesta versão de desenvolvimento.**
+Plataforma de avaliação corporal assistida para fisioterapeutas. Versão 2 executável de foto/webcam e vídeo, landmarks reais, medição geométrica 2D, revisão profissional e relatório PDF. **Não fornece diagnóstico automático e não está clinicamente validado. Use somente dados fictícios nesta versão de desenvolvimento.**
 
 ## Funcionalidades do núcleo
 - Login com sessão segura, administrador e fisioterapeuta; isolamento por clínica.
@@ -13,7 +13,7 @@ Plataforma de avaliação corporal assistida para fisioterapeutas. MVP executáv
 - Revisões com autoria/data, conclusão profissional, snapshots imutáveis e PDF.
 - Auditoria, cadastro de profissionais, regras clínicas pendentes de validação e desativadas.
 
-Vídeos, fases de movimento e protocolos dinâmicos são a segunda entrega; comparação longitudinal e testes adicionais estão no roadmap. Os tipos funcional/esportivo/movimento organizam o registro, mas neste MVP todos usam medidas estáticas.
+Também inclui gravação/upload de vídeo, processamento real no servidor, agachamento bilateral/unipodal, elevação de braço, fases experimentais, timeline com skeleton, gráficos D/E, mapa corporal e comparação longitudinal compatível. Veja [métodos e limites dos movimentos](docs/movements.md). Os tipos de avaliação organizam o registro; o protocolo escolhido determina a análise.
 
 ## Stack e estrutura
 ```
@@ -36,11 +36,11 @@ backend/
   tests/                  API, segurança, validação e matemática
 infra/                    Dockerfiles
 docs/                     Arquitetura, métodos, segurança e roadmap
-compose.yaml              Frontend + backend + PostgreSQL
+compose.yaml              Frontend + backend + worker + PostgreSQL
 ```
 
 ## Opção A — Docker Compose e PostgreSQL
-Requisitos: Docker Engine/Desktop com Compose v2, internet na instalação e aproximadamente 2 GB livres. Não depende de serviços pagos.
+Requisitos: Docker Engine/Desktop com Compose v2, internet na instalação e aproximadamente 4 GB livres. Não depende de serviços pagos. Docker está configurado, mas não foi executado na máquina de desenvolvimento; a validação local utilizou Windows e PostgreSQL.
 
 1. Copie `.env.example` para `.env` na raiz. Substitua `POSTGRES_PASSWORD` por senha aleatória longa. Para a URL de conexão, use caracteres seguros de URL (ex.: hexadecimal), ou percent-encode caracteres especiais.
 2. Na raiz execute:
@@ -76,8 +76,11 @@ Ainda em `backend/`:
 ```sh
 python -m alembic upgrade head
 python -m app.seed --demo
+python -m app.vision.provider
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-access-log
 ```
+Em outro terminal com o mesmo ambiente Python ativo, dentro de `backend/`, execute `python -m app.jobs` e mantenha-o aberto. Esse worker é obrigatório para vídeo. Em Linux, instale também as bibliotecas de sistema `libgl1`, `libglib2.0-0` e `libportaudio2` (nomes Debian/Ubuntu).
+
 Em outro terminal, a partir de `frontend/`:
 ```sh
 npm ci
@@ -100,7 +103,7 @@ Abra **http://127.0.0.1:3000**. A interface encaminha `/api` para `http://127.0.
 O PDF reflete observações **salvas**. Antes de baixar, use Salvar observações. Concluir exige revisão de todos os registros e uma conclusão preenchida. Avaliações concluídas ficam imutáveis.
 
 ## Câmera e smartphone
-Webcam exige `localhost` ou HTTPS e autorização do navegador. Uma URL HTTP por IP de rede não garante acesso à câmera. Câmera traseira é preferida quando disponível; confirme o enquadramento. Tablet é suportado pela interface responsiva. Smartphone exige servir a aplicação por HTTPS acessível ao dispositivo; não existe aplicativo nativo neste MVP. A gravação contínua de vídeo não foi implementada.
+Webcam exige `localhost` ou HTTPS e autorização do navegador. Uma URL HTTP por IP de rede não garante acesso à câmera. Câmera traseira é preferida quando disponível; confirme o enquadramento. Tablet é suportado pela interface responsiva. Smartphone exige servir a aplicação por HTTPS acessível ao dispositivo; não existe aplicativo nativo. Gravação de movimento usa MediaRecorder, sem áudio, até 60 segundos; alternativamente envie MP4/WebM até 100 MiB. Autorize a câmera no modo Vídeo, grave, confira as duas confirmações e clique Processar vídeo. Pode sair da tela: acompanhe o job ao reabrir Captura pelo histórico.
 
 ## Testes e build
 Com o ambiente Python ativo, em `backend/`:
@@ -116,16 +119,19 @@ npm test
 npm run build
 npm audit
 ```
-Os testes de navegador exigem Chrome, backend/frontend executando e uma conta de demonstração. Defina `E2E_PASSWORD`, opcionalmente `E2E_EMAIL`, e `E2E_IMAGE` apontando para foto de teste autorizada. Execute `npm run test:e2e`. A inferência utiliza o modelo real; o teste de integração fica explicitamente skipped sem essas variáveis. A imagem de teste não é incluída no repositório.
+Os testes de navegador exigem Chrome, backend/frontend/worker executando e uma conta de demonstração. Defina `E2E_PASSWORD`, opcionalmente `E2E_EMAIL`, e `E2E_IMAGE` apontando para foto de teste autorizada. Para webcam/gravação, defina também `E2E_CAMERA_FILE` com um arquivo Y4M autorizado para a câmera de teste do Chrome. Execute `npm run test:e2e`. A inferência utiliza o modelo real; testes de integração ficam explicitamente skipped sem as respectivas variáveis. As mídias de teste não são incluídas no repositório.
 
 ## Banco, migrações e arquivos
 As migrations criam entidades relacionais de clínica, usuários/profissionais, sessão, pacientes, avaliações, mídia, análise, frames, landmarks, medidas, regras, achados, revisões, relatórios e auditoria. Para alterar esquema: `alembic revision --autogenerate -m descricao`, revisar o arquivo e testar upgrade/downgrade em banco descartável antes de aplicar. Não usar `create_all` no startup.
 
 Não há binários de mídia no PostgreSQL. Os arquivos JPEG normalizados são armazenados em `STORAGE_DIR`; cada registro guarda hash, tamanho, tipo, dimensões, proprietário e avaliação. Não apague diretórios de mídia isoladamente: eles estão referenciados no banco.
 
+Vídeos originais também ficam privados em `STORAGE_DIR`, com hash e metadados técnicos; áudio/metadados de uploads não são removidos nesta versão. Faça backup consistente de banco e diretório de mídia. O modelo do servidor fica em `POSE_MODEL_PATH`, separado das mídias; no Docker é preparado durante o build.
+
 ## Documentação
 - [Arquitetura e decisões](docs/architecture.md)
 - [Métodos biomecânicos](docs/biomechanics.md)
+- [Movimentos, fases e evolução](docs/movements.md)
 - [Motor clínico](docs/clinical-engine.md)
 - [Privacidade e segurança](docs/privacy-security.md)
 - [API](docs/api.md)

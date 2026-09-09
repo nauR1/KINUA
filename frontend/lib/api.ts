@@ -37,6 +37,9 @@ export type Assessment = {
   patient_id: string;
   kind: string;
   mode: string;
+  protocol: string;
+  side: string;
+  jobs?: ProcessingJob[];
   status: string;
   notes: string;
   conclusion: string;
@@ -50,7 +53,19 @@ export type Measurement = {
   value: number | null;
   unit: string;
   confidence: number;
-  details: { region: string; side: string; reason?: string; status: string };
+  details: {
+    region: string;
+    side: string;
+    reason?: string;
+    status: string;
+    min?: number;
+    max?: number;
+    amplitude?: number;
+    max_index?: number;
+    statistic?: string;
+    valid_samples?: number;
+    total_samples?: number;
+  };
 };
 export type Finding = {
   id: string;
@@ -60,6 +75,8 @@ export type Finding = {
   confidence: number;
   explanation: {
     reason: string;
+    sample_index?: number;
+    timestamp_ms?: number;
     related_factors: string[];
     suggested_tests: string[];
   };
@@ -72,7 +89,31 @@ export type Analysis = {
   biomechanics_version: string;
   rules_version: string;
   created_at: string;
-  media: { view: string; width: number; height: number };
+  media: {
+    view: string;
+    width: number;
+    height: number;
+    mime: string;
+    metadata_json?: { duration_seconds: number };
+  };
+  motion?: {
+    version?: string;
+    protocol: string;
+    signal: string;
+    target_fps: number;
+    phase_limitations: string;
+    comparison: Record<string, { values: (number | null)[] }>;
+    phase_detection: {
+      phases: string[];
+      cycles: {
+        complete: boolean;
+        start_index: number;
+        peak_index: number;
+        end_index: number | null;
+      }[];
+      events: { type: string; index: number; timestamp_ms: number }[];
+    };
+  };
   quality: {
     landmark_visibility_mean: number;
     coverage: number;
@@ -81,5 +122,28 @@ export type Analysis = {
   };
   measurements: Measurement[];
   findings: Finding[];
-  frames: { landmarks: import("../vision/types").Landmark[] }[];
+  frames: {
+    landmarks: import("../vision/types").Landmark[];
+    frame_index: number;
+    timestamp_ms: number;
+    phase: string;
+    measurements?: {
+      values: Record<string, number | null>;
+      velocity: Record<string, number | null>;
+    };
+    quality?: { messages: string[] };
+  }[];
+};
+export type ProcessingJob = {
+  id: string;
+  media_id: string;
+  state: string;
+  progress: number;
+  error: string;
+  updated_at: string;
+  options: {
+    fps: number;
+    camera_level_confirmed: boolean;
+    view_confirmed: boolean;
+  };
 };

@@ -77,6 +77,12 @@ class Assessment(Base):
     created_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
     kind: Mapped[str] = mapped_column(String(40))
     mode: Mapped[str] = mapped_column(String(20))
+    protocol: Mapped[str] = mapped_column(
+        String(40), default="static", server_default="static"
+    )
+    side: Mapped[str] = mapped_column(
+        String(20), default="bilateral", server_default="bilateral"
+    )
     status: Mapped[str] = mapped_column(String(20), default="draft")
     notes: Mapped[str] = mapped_column(Text, default="")
     conclusion: Mapped[str] = mapped_column(Text, default="")
@@ -95,6 +101,7 @@ class AssessmentMedia(Base):
     width: Mapped[int] = mapped_column(Integer)
     height: Mapped[int] = mapped_column(Integer)
     view: Mapped[str] = mapped_column(String(20))
+    metadata_json: Mapped[dict] = mapped_column(JSON, default=dict, server_default="{}")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 
@@ -110,6 +117,7 @@ class Analysis(Base):
     biomechanics_version: Mapped[str] = mapped_column(String(30))
     rules_version: Mapped[str] = mapped_column(String(30))
     quality: Mapped[dict] = mapped_column(JSON)
+    motion: Mapped[dict] = mapped_column(JSON, default=dict, server_default="{}")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 
@@ -120,6 +128,27 @@ class PoseFrame(Base):
     analysis_id: Mapped[str] = mapped_column(ForeignKey("analyses.id"), index=True)
     frame_index: Mapped[int] = mapped_column(Integer)
     timestamp_ms: Mapped[float] = mapped_column(Float)
+    measurements: Mapped[dict] = mapped_column(JSON, default=dict, server_default="{}")
+    phase: Mapped[str] = mapped_column(
+        String(30), default="not_applicable", server_default="not_applicable"
+    )
+    quality: Mapped[dict] = mapped_column(JSON, default=dict, server_default="{}")
+
+
+class ProcessingJob(Base):
+    __tablename__ = "processing_jobs"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    assessment_id: Mapped[str] = mapped_column(ForeignKey("assessments.id"), index=True)
+    media_id: Mapped[str] = mapped_column(
+        ForeignKey("assessment_media.id"), unique=True
+    )
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    state: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    progress: Mapped[float] = mapped_column(Float, default=0)
+    options: Mapped[dict] = mapped_column(JSON)
+    error: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 
 class PoseLandmark(Base):

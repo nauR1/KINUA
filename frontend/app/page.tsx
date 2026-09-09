@@ -19,10 +19,12 @@ import {
 import { api, post, type Patient, type Assessment } from "@/lib/api";
 import PatientForm from "@/components/PatientForm";
 import Capture from "@/components/Capture";
+import VideoCapture from "@/components/VideoCapture";
 import Login from "@/components/Login";
 import AssessmentTable from "@/components/AssessmentTable";
 import SettingsView from "@/components/SettingsView";
 import Results from "@/components/Results";
+import Comparison from "@/components/Comparison";
 type User = { id: string; name: string; email: string; role: string };
 type Dashboard = {
   patients: number;
@@ -59,7 +61,9 @@ export default function Home() {
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [newAssessment, setNewAssessment] = useState(false),
-    [dark, setDark] = useState(false);
+    [dark, setDark] = useState(false),
+    [mode, setMode] = useState("camera"),
+    [protocol, setProtocol] = useState("bilateral_squat");
   useEffect(() => {
     api<User>("/auth/me")
       .then(setUser)
@@ -131,6 +135,11 @@ export default function Home() {
         patient_id: f.get("patient_id"),
         kind: f.get("kind"),
         mode: f.get("mode"),
+        protocol: mode === "video" ? protocol : "static",
+        side:
+          mode === "video" && protocol === "single_leg_squat"
+            ? f.get("side")
+            : "bilateral",
       });
       await refresh();
       await openAssessment(a.id);
@@ -163,6 +172,8 @@ export default function Home() {
   const filtered = patients.filter((p) =>
     p.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
   );
+  const CaptureComponent =
+    assessment?.mode === "video" ? VideoCapture : Capture;
   const title =
     section === "dashboard"
       ? "Visão geral"
@@ -326,16 +337,51 @@ export default function Home() {
                     </label>
                     <label>
                       Modo
-                      <select name="mode">
+                      <select
+                        name="mode"
+                        value={mode}
+                        onChange={(e) => setMode(e.target.value)}
+                      >
                         <option value="camera">Câmera em tempo real</option>
                         <option value="photo">Fotografia</option>
+                        <option value="video">
+                          Vídeo / gravação de movimento
+                        </option>
                       </select>
                     </label>
                   </div>
+                  {mode === "video" && (
+                    <div className="form-grid">
+                      <label>
+                        Protocolo
+                        <select
+                          value={protocol}
+                          onChange={(e) => setProtocol(e.target.value)}
+                        >
+                          <option value="bilateral_squat">
+                            Agachamento bilateral
+                          </option>
+                          <option value="single_leg_squat">
+                            Agachamento unipodal
+                          </option>
+                          <option value="arm_raise">Elevação de braço</option>
+                        </select>
+                      </label>
+                      {protocol === "single_leg_squat" && (
+                        <label>
+                          Lado avaliado
+                          <select name="side">
+                            <option value="right">Direito</option>
+                            <option value="left">Esquerdo</option>
+                          </select>
+                        </label>
+                      )}
+                    </div>
+                  )}
                   <p className="muted small">
-                    Neste MVP, todos os tipos registram medidas posturais
-                    estáticas. Protocolos de movimento entram na próxima
-                    entrega.
+                    Medidas projetadas em 2D. Para movimento, registre uma
+                    posição inicial estável antes de iniciar e retorne à posição
+                    inicial.
                   </p>
                   <button disabled={busy}>
                     {busy ? "Criando…" : "Iniciar captura"}
@@ -499,6 +545,7 @@ export default function Home() {
                       onOpen={openAssessment}
                     />
                   </section>
+                  <Comparison history={history} />
                 </>
               ) : (
                 <section className="panel">
@@ -629,7 +676,7 @@ export default function Home() {
                 </button>
               </div>
               {tab === "capture" && assessment.status !== "completed" ? (
-                <Capture
+                <CaptureComponent
                   key={assessment.id}
                   assessment={assessment}
                   onSaved={(a) => {

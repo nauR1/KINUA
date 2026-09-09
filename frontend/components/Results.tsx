@@ -9,6 +9,8 @@ import {
   type Finding,
 } from "@/lib/api";
 import { drawSkeleton } from "@/vision/draw";
+import MotionTimeline from "./MotionTimeline";
+import BodyMap from "./BodyMap";
 const stateNames: Record<string, string> = {
   needs_review: "A revisar",
   professional_confirmed: "Confirmado",
@@ -19,10 +21,12 @@ function FindingReview({
   finding,
   disabled,
   onReviewed,
+  onLocate,
 }: {
   finding: Finding;
   disabled: boolean;
   onReviewed: () => void;
+  onLocate?: () => void;
 }) {
   const [note, setNote] = useState(""),
     [busy, setBusy] = useState(false),
@@ -54,6 +58,12 @@ function FindingReview({
       </summary>
       <div className="finding-body">
         <p>{finding.description}</p>
+        {onLocate && (
+          <button className="secondary" onClick={onLocate}>
+            Ver instante da medida máxima (
+            {((finding.explanation.timestamp_ms || 0) / 1000).toFixed(2)} s)
+          </button>
+        )}
         <p className="muted">{finding.explanation.reason}</p>
         <p>
           Visibilidade dos landmarks:{" "}
@@ -141,7 +151,9 @@ export default function Results({
     [conclusion, setConclusion] = useState(assessment.conclusion),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
-    [message, setMessage] = useState("");
+    [message, setMessage] = useState(""),
+    [frame, setFrame] = useState(0),
+    [region, setRegion] = useState("");
   const analysis =
       assessment.analyses[Math.min(selected, assessment.analyses.length - 1)],
     done = assessment.status === "completed";
@@ -217,7 +229,11 @@ export default function Results({
           Captura
           <select
             value={selected}
-            onChange={(e) => setSelected(Number(e.target.value))}
+            onChange={(e) => {
+              setSelected(Number(e.target.value));
+              setFrame(0);
+              setRegion("");
+            }}
           >
             {assessment.analyses.map((a, i) => (
               <option key={a.id} value={i}>
@@ -234,10 +250,23 @@ export default function Results({
           Valores preservados com as versões originais dos motores.
         </span>
       </div>
-      <div className="results-layout">
+      <div
+        className={
+          "results-layout" + (analysis.motion?.version ? " motion-results" : "")
+        }
+      >
         <div>
           <div className="panel image-panel">
-            <AnalysisImage analysis={analysis} />
+            {analysis.media.mime.startsWith("video/") ? (
+              <MotionTimeline
+                key={analysis.id}
+                analysis={analysis}
+                selected={frame}
+                onSelect={setFrame}
+              />
+            ) : (
+              <AnalysisImage analysis={analysis} />
+            )}
             <div className="image-caption">
               <span>Imagem + landmarks</span>
               <span>
@@ -267,37 +296,59 @@ export default function Results({
           </div>
         </div>
         <div className="panel measurement-panel">
-          <h3>Medidas posturais</h3>
+          <h3>
+            {analysis.motion?.version
+              ? "Medidas do movimento · média"
+              : "Medidas posturais"}
+          </h3>
           <p className="muted">
             Sem classificação de normalidade ou diagnóstico.
           </p>
           <div className="measurements">
-            {analysis.measurements.map((m) => (
-              <div key={m.id} className="measurement">
-                <div>
-                  <strong>{m.label}</strong>
-                  {m.value === null ? (
-                    <p className="small muted">{m.details.reason}</p>
-                  ) : (
-                    <p className="small muted">
-                      Visibilidade técnica {(m.confidence * 100).toFixed(0)}%
-                    </p>
-                  )}
+            {analysis.measurements
+              .slice()
+              .sort(
+                (a, b) => Number(a.value === null) - Number(b.value === null),
+              )
+              .map((m) => (
+                <div key={m.id} className="measurement">
+                  <div>
+                    <strong>{m.label}</strong>
+                    {m.value === null ? (
+                      <p className="small muted">{m.details.reason}</p>
+                    ) : (
+                      <p className="small muted">
+                        Visibilidade técnica {(m.confidence * 100).toFixed(0)}%
+                        {m.details.min !== undefined && (
+                          <>
+                            <br />
+                            Mín. {m.details.min.toFixed(1)} · Máx.{" "}
+                            {m.details.max?.toFixed(1)} · Amplitude{" "}
+                            {m.details.amplitude?.toFixed(1)} {m.unit}
+                            <br />
+                            {m.details.valid_samples}/{m.details.total_samples}{" "}
+                            amostras válidas
+                          </>
+                        )}
+                      </p>
+                    )}
+                  </div>
+                  <span
+                    className={
+                      m.value === null ? "unavailable" : "measure-value"
+                    }
+                  >
+                    {m.value === null ? (
+                      "Não mensurável"
+                    ) : (
+                      <>
+                        {m.value.toFixed(1)}
+                        <small>{m.unit}</small>
+                      </>
+                    )}
+                  </span>
                 </div>
-                <span
-                  className={m.value === null ? "unavailable" : "measure-value"}
-                >
-                  {m.value === null ? (
-                    "Não mensurável"
-                  ) : (
-                    <>
-                      {m.value.toFixed(1)}
-                      <small>{m.unit}</small>
-                    </>
-                  )}
-                </span>
-              </div>
-            ))}
+              ))}
           </div>
         </div>
       </div>
@@ -316,14 +367,35 @@ export default function Results({
           Confirme a qualidade da medida ou descarte o registro. A confirmação
           não constitui diagnóstico.
         </p>
-        {analysis.findings.map((f) => (
-          <FindingReview
-            key={f.id}
-            finding={f}
-            disabled={done}
-            onReviewed={() => void reload()}
-          />
-        ))}
+        <BodyMap
+          findings={analysis.findings}
+          selected={region}
+          onSelect={setRegion}
+        />
+        {analysis.findings
+          .filter((f) => !region || f.region === region)
+          .map((f) => (
+            <FindingReview
+              key={f.id}
+              finding={f}
+              disabled={done}
+              onReviewed={() => void reload()}
+              onLocate={
+                analysis.motion?.version &&
+                f.explanation.sample_index !== undefined
+                  ? () => {
+                      setFrame(f.explanation.sample_index!);
+                      document
+                        .querySelector(".motion-timeline")
+                        ?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "center",
+                        });
+                    }
+                  : undefined
+              }
+            />
+          ))}
       </section>
       <section className="panel form-panel">
         <h2>Interpretação do fisioterapeuta</h2>

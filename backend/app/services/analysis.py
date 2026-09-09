@@ -33,6 +33,8 @@ def analyze(
     )
     if not media:
         raise HTTPException(404, "Mídia não encontrada nesta avaliação.")
+    if media.mime.startswith("video/"):
+        raise HTTPException(422, "Vídeos exigem processamento pelo worker.")
     if db.scalar(select(Analysis).where(Analysis.media_id == media.id)):
         raise HTTPException(
             409, "Esta captura já foi analisada. Os resultados são imutáveis."
