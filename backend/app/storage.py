@@ -38,6 +38,30 @@ class LocalStorageProvider:
     def delete(self, key: str) -> None:
         self.path(key).unlink(missing_ok=True)
 
+    def verified_path(self, key: str, expected_hash: str, expected_size: int) -> Path:
+        """Detect missing/corrupted storage before associating media with a result.
+
+        This is an integrity check, not protection against a host administrator
+        who can alter both the database hash and the stored file.
+        """
+        path = self.path(key)
+        try:
+            if path.stat().st_size != expected_size:
+                raise HTTPException(
+                    409, "Integridade da mídia divergente. Não utilize esta captura."
+                )
+            digest = hashlib.sha256()
+            with path.open("rb") as stream:
+                for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                    digest.update(chunk)
+            if digest.hexdigest() != expected_hash:
+                raise HTTPException(
+                    409, "Integridade da mídia divergente. Não utilize esta captura."
+                )
+        except FileNotFoundError:
+            raise HTTPException(404, "Arquivo indisponível no armazenamento.") from None
+        return path
+
 
 def normalize_image(data: bytes) -> tuple[bytes, int, int]:
     try:

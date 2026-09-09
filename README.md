@@ -129,6 +129,8 @@ Não há binários de mídia no PostgreSQL. Os arquivos JPEG normalizados são a
 Vídeos originais também ficam privados em `STORAGE_DIR`, com hash e metadados técnicos; áudio/metadados de uploads não são removidos nesta versão. Faça backup consistente de banco e diretório de mídia. O modelo do servidor fica em `POSE_MODEL_PATH`, separado das mídias; no Docker é preparado durante o build.
 
 ## Documentação
+- [Avaliação de prontidão clínica pela internet — não liberado](docs/clinical-readiness.md)
+- [Protocolo de validação clínica proposto](docs/clinical-validation-protocol.md)
 - [Arquitetura e decisões](docs/architecture.md)
 - [Métodos biomecânicos](docs/biomechanics.md)
 - [Movimentos, fases e evolução](docs/movements.md)

@@ -152,6 +152,9 @@ def make_pdf(snapshot: dict, db) -> bytes:
     for analysis in a["analyses"]:
         flow += [p("Captura · " + analysis["media"]["view"], "Heading2")]
         media = db.get(AssessmentMedia, analysis["media_id"])
+        verified = LocalStorageProvider().verified_path(
+            media.storage_key, media.sha256, media.size
+        )
         frames = analysis["frames"]
         motion = analysis.get("motion", {})
         indexes = [0]
@@ -170,9 +173,7 @@ def make_pdf(snapshot: dict, db) -> bytes:
             )
             flow.append(p(motion["phase_limitations"]))
         for index in dict.fromkeys(indexes):
-            buffer = frame_image(
-                LocalStorageProvider().path(media.storage_key), media, frames[index]
-            )
+            buffer = frame_image(verified, media, frames[index])
             if buffer is None:
                 flow.append(p("Frame indisponível para ilustração."))
                 continue

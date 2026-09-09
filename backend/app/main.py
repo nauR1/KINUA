@@ -39,7 +39,7 @@ from .core.body_limit import BodyLimitMiddleware
 from .api_video import router as video_router
 from .services.comparison import compare
 
-app = FastAPI(title="Biometria API", version="2.0.0")
+app = FastAPI(title="Biometria API", version="2.0.1")
 app.include_router(video_router)
 
 
@@ -109,7 +109,7 @@ async def conflict(request, exc):
 @app.get("/health")
 def health(db: DBSession = Depends(get_db)):
     db.execute(select(1))
-    return {"status": "ok", "service": "biometria", "version": "2.0.0"}
+    return {"status": "ok", "service": "biometria", "version": "2.0.1"}
 
 
 @app.post("/auth/login")
@@ -345,11 +345,16 @@ def update_assessment(
             raise HTTPException(
                 409, "Revise todos os registros de medida antes de concluir."
             )
-        if not body.conclusion:
+        conclusion = (
+            body.conclusion
+            if "conclusion" in body.model_fields_set
+            else assessment.conclusion
+        )
+        if not conclusion:
             raise HTTPException(
                 422, "Escreva a conclusão profissional antes de concluir."
             )
-    for key, value in body.model_dump().items():
+    for key, value in body.model_dump(exclude_unset=True).items():
         setattr(assessment, key, value)
     audit(db, user, "assessment.updated", assessment.id)
     db.commit()
@@ -409,7 +414,9 @@ def media_file(
     if not media:
         raise HTTPException(404, "Mídia não encontrada.")
     assessment_for(db, media.assessment_id, user)
-    path = LocalStorageProvider().path(media.storage_key)
+    path = LocalStorageProvider().verified_path(
+        media.storage_key, media.sha256, media.size
+    )
     if not path.is_file():
         raise HTTPException(404, "Arquivo indisponível no armazenamento.")
     return FileResponse(

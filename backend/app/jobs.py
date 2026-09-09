@@ -6,6 +6,7 @@ import sys
 import time
 from datetime import timedelta
 import cv2
+from fastapi import HTTPException
 from sqlalchemy import select, update
 from .core.database import SessionLocal
 from . import models as m
@@ -48,7 +49,9 @@ def process_job(job_id, provider_factory=MediaPipePoseProvider):
     records = []
     try:
         for index, timestamp, rgb in frames(
-            LocalStorageProvider().path(media.storage_key),
+            LocalStorageProvider().verified_path(
+                media.storage_key, media.sha256, media.size
+            ),
             options["fps"],
             media.metadata_json,
         ):
@@ -241,6 +244,8 @@ def main():
             pass
         except ValueError as exc:
             fail(args.job, str(exc))
+        except HTTPException as exc:
+            fail(args.job, str(exc.detail))
         except Exception:
             fail(
                 args.job,

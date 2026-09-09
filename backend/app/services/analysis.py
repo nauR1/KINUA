@@ -20,7 +20,7 @@ from ..clinical.engine import ClinicalRulesEngine, AttentionEngine
 def analyze(
     db: Session, assessment_id: str, body: AnalyzeInput, user: User
 ) -> Analysis:
-    assessment = assessment_for(db, assessment_id, user)
+    assessment = assessment_for(db, assessment_id, user, lock=True)
     if assessment.status == "completed":
         raise HTTPException(
             409, "Avaliação concluída. Crie uma nova avaliação para outra captura."
@@ -51,7 +51,11 @@ def analyze(
         media.view,
         body.camera_level_confirmed,
         body.view_confirmed,
-        brightness(LocalStorageProvider().path(media.storage_key)),
+        brightness(
+            LocalStorageProvider().verified_path(
+                media.storage_key, media.sha256, media.size
+            )
+        ),
     )
     analysis = Analysis(
         assessment_id=assessment.id,
