@@ -16,6 +16,7 @@ from .vision.video import frames
 from .biomechanics.motion import MotionEngine, summarize
 from .clinical.engine import ClinicalRulesEngine, AttentionEngine
 from .repositories import audit
+from .rom import ROMEngine
 
 
 class Cancelled(Exception):
@@ -44,8 +45,9 @@ def process_job(job_id, provider_factory=MediaPipePoseProvider):
         options = job.options
         protocol = assessment.protocol
         side = assessment.side
+        rom_session = db.get(m.ROMSession, assessment.id)
     provider = provider_factory()
-    engine = MotionEngine()
+    engine = ROMEngine(rom_session.definition) if rom_session else MotionEngine()
     records = []
     try:
         for index, timestamp, rgb in frames(
@@ -89,7 +91,10 @@ def process_job(job_id, provider_factory=MediaPipePoseProvider):
         raise ValueError(
             "Nenhum frame com medidas utilizáveis. Confira plano, iluminação e corpo inteiro."
         )
-    summaries, motion = summarize(records, media.view, protocol, side, options["fps"])
+    summarize_frames = engine.summarize if rom_session else summarize
+    summaries, motion = summarize_frames(
+        records, media.view, protocol, side, options["fps"]
+    )
     quality = {
         **records[0]["quality"],
         "total_frames": len(records),
@@ -163,15 +168,39 @@ def process_job(job_id, provider_factory=MediaPipePoseProvider):
             db.add(measurement)
             db.flush()
             if summary["value"] is not None:
+                if rom_session:
+                    d = summary["details"]
+                    db.add(
+                        m.ROMMeasurement(
+                            analysis_id=analysis.id,
+                            measurement_id=measurement.id,
+                            movement=rom_session.movement,
+                            side=d["side"],
+                            minimum=d["min"],
+                            maximum=d["max"],
+                            excursion=d["amplitude"],
+                            peak_value=d["peak_value"],
+                            peak_frame_index=d["peak_frame_index"],
+                            peak_timestamp_ms=d["peak_timestamp_ms"],
+                            confidence=d["peak_visibility"],
+                            details=d,
+                        )
+                    )
                 explanation = AttentionEngine().explain(summary)
                 explanation["description"] = (
                     f"{summary['label']}: média {summary['value']:.1f} {summary['unit']}; mínimo {summary['details']['min']:.1f}; máximo {summary['details']['max']:.1f}. Sem classificação clínica."
                 )
                 explanation["explanation"].update(
                     timestamp_ms=summary["details"]["peak_timestamp_ms"],
-                    sample_index=summary["details"]["max_index"],
-                    frame_index=records[summary["details"]["max_index"]]["frame_index"],
-                    reason="Resumo das amostras válidas. Frame indicado corresponde ao máximo observado, não a um limiar clínico.",
+                    sample_index=summary["details"].get(
+                        "peak_index", summary["details"]["max_index"]
+                    ),
+                    frame_index=records[
+                        summary["details"].get(
+                            "peak_index", summary["details"]["max_index"]
+                        )
+                    ]["frame_index"],
+                    reason="Resumo das amostras válidas. Frame indicado corresponde ao extremo observado (mínimo de flexão residual na extensão ROM), sem limiar clínico.",
                 )
                 db.add(
                     m.AttentionFinding(

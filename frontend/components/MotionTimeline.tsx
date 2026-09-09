@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import type { Analysis } from "@/lib/api";
 import { drawSkeleton } from "@/vision/draw";
 const phases: Record<string, string> = {
+  sampled: "Amostra ROM",
+  movement_start: "Início do movimento",
   initial: "Inicial",
   descending: "Descida",
   ascending: "Subida",
@@ -115,11 +117,13 @@ export default function MotionTimeline({
           <span className="eyebrow">SÉRIE TEMPORAL</span>
           <h2>Vídeo e medidas sincronizados</h2>
         </div>
-        <span className="badge">
-          {analysis.motion?.phase_detection.cycles.filter((c) => c.complete)
-            .length || 0}{" "}
-          ciclos completos · experimental
-        </span>
+        {!analysis.motion?.rom && (
+          <span className="badge">
+            {analysis.motion?.phase_detection.cycles.filter((c) => c.complete)
+              .length || 0}{" "}
+            ciclos completos · experimental
+          </span>
+        )}
       </div>
       <div className="motion-layout">
         <div className="video-stage">

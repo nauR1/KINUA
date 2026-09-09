@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Camera, Square, Upload, Play, LoaderCircle } from "lucide-react";
 import { api, post, type Assessment, type ProcessingJob } from "@/lib/api";
+import ROMLive from "./ROMLive";
 export default function VideoCapture({
   assessment,
   onSaved,
@@ -10,7 +11,11 @@ export default function VideoCapture({
   onSaved: (a: Assessment) => void;
 }) {
   const [jobs, setJobs] = useState(assessment.jobs || []),
-    [view, setView] = useState("anterior"),
+    [view, setView] = useState(
+      assessment.rom_session?.definition.plane === "sagittal"
+        ? "lateral_" + assessment.side
+        : "anterior",
+    ),
     [fps, setFps] = useState(5),
     [level, setLevel] = useState(false),
     [plane, setPlane] = useState(false),
@@ -22,6 +27,7 @@ export default function VideoCapture({
     [error, setError] = useState(""),
     [stage, setStage] = useState("");
   const video = useRef<HTMLVideoElement>(null),
+    canvas = useRef<HTMLCanvasElement>(null),
     stream = useRef<MediaStream | null>(null),
     recorder = useRef<MediaRecorder | null>(null),
     timer = useRef<ReturnType<typeof setInterval> | null>(null),
@@ -229,6 +235,7 @@ export default function VideoCapture({
             muted
             playsInline
           />
+          {assessment.rom_session && recording && <canvas ref={canvas} />}
           {!preview && !recording && (
             <div className="video-placeholder">
               <Camera size={36} />
@@ -236,6 +243,17 @@ export default function VideoCapture({
             </div>
           )}
         </div>
+        {assessment.rom_session && (
+          <ROMLive
+            video={video}
+            canvas={canvas}
+            active={recording}
+            config={assessment.rom_session.definition}
+            side={assessment.side}
+            view={view}
+            confirmed={plane && level}
+          />
+        )}
         <div className="button-row">
           {recording ? (
             <button onClick={stop}>
@@ -245,7 +263,11 @@ export default function VideoCapture({
           ) : (
             <button
               className="secondary"
-              disabled={busy || active}
+              disabled={
+                busy ||
+                active ||
+                (!!assessment.rom_session && (!plane || !level))
+              }
               onClick={record}
             >
               <Camera size={17} />
@@ -330,6 +352,25 @@ export default function VideoCapture({
       <aside className="panel capture-guide">
         <span className="eyebrow">PROTOCOLO DE CAPTURA</span>
         <h3>Uma pessoa, câmera fixa</h3>
+        {assessment.rom_session && (
+          <div className="info-box">
+            <strong>{assessment.rom_session.definition.name}</strong>
+            <p>{assessment.rom_session.definition.instructions}</p>
+            <p>
+              Plano{" "}
+              {assessment.rom_session.definition.plane === "frontal"
+                ? "frontal"
+                : "sagital"}{" "}
+              · lado{" "}
+              {assessment.side === "right"
+                ? "direito"
+                : assessment.side === "left"
+                  ? "esquerdo"
+                  : "bilateral"}
+              .
+            </p>
+          </div>
+        )}
         <p className="small muted">
           Comece parado por um segundo, execute o movimento e termine parado.
           Inclua cabeça, mãos e pés.
@@ -342,7 +383,7 @@ export default function VideoCapture({
               setView(e.target.value);
               setPlane(false);
             }}
-            disabled={busy || active}
+            disabled={busy || active || recording || !!assessment.rom_session}
           >
             <option value="anterior">Anterior</option>
             <option value="posterior">Posterior</option>

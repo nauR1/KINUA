@@ -32,6 +32,9 @@ import KinuaLogo from "@/components/brand/KinuaLogo";
 import MovementArt from "@/components/brand/MovementArt";
 import MetricCard from "@/components/ui/MetricCard";
 import EmptyState from "@/components/ui/EmptyState";
+import ProtocolCatalog from "@/components/ProtocolCatalog";
+import ProtocolWorkspace from "@/components/ProtocolWorkspace";
+import { ROMLauncher, ROMHistory } from "@/components/ROM";
 type User = { id: string; name: string; email: string; role: string };
 type Dashboard = {
   patients: number;
@@ -56,6 +59,7 @@ const kindLabels: Record<string, string> = {
 export default function Home() {
   const [user, setUser] = useState<User | null>(null),
     [loading, setLoading] = useState(true),
+    [protocolPending, setProtocolPending] = useState(false),
     [section, setSection] = useState("dashboard"),
     [patients, setPatients] = useState<Patient[]>([]),
     [dashboard, setDashboard] = useState<Dashboard | null>(null),
@@ -101,6 +105,7 @@ export default function Home() {
     document.documentElement.dataset.theme = dark ? "dark" : "light";
   }, [dark]);
   async function choosePatient(p: Patient) {
+    if (protocolPending) return;
     setPatient(p);
     setAssessment(null);
     setNewAssessment(false);
@@ -130,6 +135,7 @@ export default function Home() {
     }
   }
   function navigate(next: string) {
+    if (protocolPending) return;
     setSection(next);
     setAssessment(null);
     setPatient(null);
@@ -162,6 +168,7 @@ export default function Home() {
     }
   }
   async function logout() {
+    if (protocolPending) return;
     try {
       await post("/auth/logout", {});
       setUser(null);
@@ -191,15 +198,19 @@ export default function Home() {
   const title =
     section === "dashboard"
       ? "Início"
-      : section === "patients"
-        ? "Pacientes"
-        : section === "analysis"
-          ? "Avaliação corporal"
-          : section === "reports"
-            ? "Relatórios"
-            : section === "settings"
-              ? "Configurações"
-              : "Avaliações";
+      : section === "protocols"
+        ? "Protocolos"
+        : section === "rom"
+          ? "ROM"
+          : section === "patients"
+            ? "Pacientes"
+            : section === "analysis"
+              ? "Avaliação corporal"
+              : section === "reports"
+                ? "Relatórios"
+                : section === "settings"
+                  ? "Configurações"
+                  : "Avaliações";
   return (
     <div className={`app-shell ${collapsed ? "sidebar-collapsed" : ""}`}>
       <a className="skip-link" href="#main-content">
@@ -240,6 +251,8 @@ export default function Home() {
             ["patients", "Pacientes", Users],
             ["assessments", "Avaliações", ClipboardList],
             ["analysis", "Análise", Activity],
+            ["protocols", "Protocolos", ClipboardList],
+            ["rom", "ROM", Activity],
             ["reports", "Relatórios", FileText],
             ["settings", "Configurações", Settings],
           ].map(([key, label, Icon]) => {
@@ -248,6 +261,7 @@ export default function Home() {
               <button
                 key={key as string}
                 className={section === key ? "active" : ""}
+                disabled={protocolPending}
                 aria-label={label as string}
                 title={label as string}
                 aria-current={section === key ? "page" : undefined}
@@ -310,6 +324,7 @@ export default function Home() {
             <label className="search header-search">
               <Search size={16} />
               <input
+                disabled={protocolPending}
                 aria-label="Busca rápida de pacientes"
                 placeholder="Buscar paciente…"
                 value={query}
@@ -361,6 +376,7 @@ export default function Home() {
               </div>
               {section !== "settings" && (
                 <button
+                  disabled={protocolPending}
                   onClick={() => {
                     setNewAssessment(true);
                     setAdding(false);
@@ -371,6 +387,12 @@ export default function Home() {
                 </button>
               )}
             </div>
+          )}
+          {protocolPending && (
+            <p className="info-box" role="status">
+              Salve a etapa atual antes de sair do protocolo. O salvamento
+              automático está ativo.
+            </p>
           )}
           {error && (
             <div className="error" role="alert">
@@ -631,6 +653,22 @@ export default function Home() {
                       onOpen={openAssessment}
                     />
                   </section>
+                  <div className="button-row">
+                    <button onClick={() => setSection("protocols")}>
+                      Iniciar protocolo
+                    </button>
+                    <button
+                      className="secondary"
+                      onClick={() => setSection("rom")}
+                    >
+                      Medir ROM
+                    </button>
+                  </div>
+                  <ROMHistory
+                    key={patient.id}
+                    patientId={patient.id}
+                    onOpen={openAssessment}
+                  />
                   <Comparison history={history} />
                 </>
               ) : (
@@ -727,12 +765,33 @@ export default function Home() {
               ))}
             </section>
           )}
+          {section === "protocols" && (
+            <ProtocolCatalog
+              patients={patients}
+              patientId={patient?.id}
+              onOpen={async (id) => {
+                await refresh();
+                await openAssessment(id);
+              }}
+            />
+          )}
+          {section === "rom" && (
+            <ROMLauncher
+              patients={patients}
+              patientId={patient?.id}
+              onOpen={async (id) => {
+                await refresh();
+                await openAssessment(id);
+              }}
+            />
+          )}
           {section === "analysis" && assessment && (
             <>
               <div className="assessment-heading">
                 <div>
                   <button
                     className="ghost"
+                    disabled={protocolPending}
                     onClick={() =>
                       patient ? choosePatient(patient) : navigate("assessments")
                     }
@@ -748,46 +807,68 @@ export default function Home() {
                 </div>
                 <span className="badge">{statusLabels[assessment.status]}</span>
               </div>
-              <div
-                className="analysis-tabs"
-                role="group"
-                aria-label="Etapa da avaliação"
-              >
-                {assessment.status !== "completed" && (
-                  <button
-                    className={tab === "capture" ? "selected" : "ghost"}
-                    onClick={() => setTab("capture")}
-                  >
-                    01 Captura
-                  </button>
-                )}
+              {assessment.protocol_parent_id && (
                 <button
-                  className={tab === "results" ? "selected" : "ghost"}
-                  onClick={() => setTab("results")}
+                  className="text-button"
+                  onClick={() => openAssessment(assessment.protocol_parent_id!)}
                 >
-                  02 Medidas e revisão{" "}
-                  <span className="badge">{assessment.analyses.length}</span>
+                  Voltar ao protocolo
                 </button>
-              </div>
-              {tab === "capture" && assessment.status !== "completed" ? (
-                <CaptureComponent
+              )}
+              {assessment.assessment_protocol ? (
+                <ProtocolWorkspace
                   key={assessment.id}
                   assessment={assessment}
-                  onSaved={(a) => {
-                    setAssessment(a);
-                    setTab("results");
-                    void refresh();
-                  }}
+                  onOpen={openAssessment}
+                  onChanged={setAssessment}
+                  onPending={setProtocolPending}
                 />
               ) : (
-                <Results
-                  key={assessment.id}
-                  assessment={assessment}
-                  onChanged={(a) => {
-                    setAssessment(a);
-                    void refresh();
-                  }}
-                />
+                <>
+                  <div
+                    className="analysis-tabs"
+                    role="group"
+                    aria-label="Etapa da avaliação"
+                  >
+                    {assessment.status !== "completed" && (
+                      <button
+                        className={tab === "capture" ? "selected" : "ghost"}
+                        onClick={() => setTab("capture")}
+                      >
+                        01 Captura
+                      </button>
+                    )}
+                    <button
+                      className={tab === "results" ? "selected" : "ghost"}
+                      onClick={() => setTab("results")}
+                    >
+                      02 Medidas e revisão{" "}
+                      <span className="badge">
+                        {assessment.analyses.length}
+                      </span>
+                    </button>
+                  </div>
+                  {tab === "capture" && assessment.status !== "completed" ? (
+                    <CaptureComponent
+                      key={assessment.id}
+                      assessment={assessment}
+                      onSaved={(a) => {
+                        setAssessment(a);
+                        setTab("results");
+                        void refresh();
+                      }}
+                    />
+                  ) : (
+                    <Results
+                      key={assessment.id}
+                      assessment={assessment}
+                      onChanged={(a) => {
+                        setAssessment(a);
+                        void refresh();
+                      }}
+                    />
+                  )}
+                </>
               )}
             </>
           )}

@@ -228,3 +228,107 @@ class AuditLog(Base):
     action: Mapped[str] = mapped_column(String(80))
     resource_id: Mapped[str] = mapped_column(String(80))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class ProtocolCategory(Base):
+    __tablename__ = "protocol_categories"
+    id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    name: Mapped[str] = mapped_column(String(100))
+
+
+class Protocol(Base):
+    __tablename__ = "protocols"
+    id: Mapped[str] = mapped_column(String(60), primary_key=True)
+    category_id: Mapped[str] = mapped_column(ForeignKey("protocol_categories.id"))
+    name: Mapped[str] = mapped_column(String(160))
+
+
+class ProtocolVersion(Base):
+    __tablename__ = "protocol_versions"
+    __table_args__ = (UniqueConstraint("protocol_id", "version"),)
+    id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    protocol_id: Mapped[str] = mapped_column(ForeignKey("protocols.id"), index=True)
+    version: Mapped[str] = mapped_column(String(30))
+    definition: Mapped[dict] = mapped_column(JSON)
+
+
+class ProtocolStep(Base):
+    __tablename__ = "protocol_steps"
+    __table_args__ = (UniqueConstraint("version_id", "key"),)
+    id: Mapped[str] = mapped_column(String(140), primary_key=True)
+    version_id: Mapped[str] = mapped_column(
+        ForeignKey("protocol_versions.id"), index=True
+    )
+    key: Mapped[str] = mapped_column(String(40))
+    position: Mapped[int] = mapped_column(Integer)
+    definition: Mapped[dict] = mapped_column(JSON)
+
+
+class AssessmentProtocol(Base):
+    __tablename__ = "assessment_protocols"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    assessment_id: Mapped[str] = mapped_column(
+        ForeignKey("assessments.id"), unique=True
+    )
+    version_id: Mapped[str] = mapped_column(ForeignKey("protocol_versions.id"))
+    snapshot: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class AssessmentStepResult(Base):
+    __tablename__ = "assessment_step_results"
+    __table_args__ = (UniqueConstraint("assessment_protocol_id", "step_key"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    assessment_protocol_id: Mapped[str] = mapped_column(
+        ForeignKey("assessment_protocols.id"), index=True
+    )
+    step_key: Mapped[str] = mapped_column(String(40))
+    state: Mapped[str] = mapped_column(String(20), default="not_started")
+    revision: Mapped[int] = mapped_column(Integer, default=0)
+    result: Mapped[str] = mapped_column(Text, default="")
+    note: Mapped[str] = mapped_column(Text, default="")
+    child_assessment_id: Mapped[str | None] = mapped_column(
+        ForeignKey("assessments.id"), unique=True, nullable=True
+    )
+    started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    skipped_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    updated_by: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class ROMSession(Base):
+    __tablename__ = "rom_sessions"
+    assessment_id: Mapped[str] = mapped_column(
+        ForeignKey("assessments.id"), primary_key=True
+    )
+    movement: Mapped[str] = mapped_column(String(40))
+    definition: Mapped[dict] = mapped_column(JSON)
+    version: Mapped[str] = mapped_column(String(30))
+
+
+class ROMMeasurement(Base):
+    __tablename__ = "rom_measurements"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    analysis_id: Mapped[str] = mapped_column(ForeignKey("analyses.id"), index=True)
+    measurement_id: Mapped[str] = mapped_column(
+        ForeignKey("biomechanical_measurements.id"), unique=True
+    )
+    movement: Mapped[str] = mapped_column(String(40))
+    side: Mapped[str] = mapped_column(String(20))
+    minimum: Mapped[float] = mapped_column(Float)
+    maximum: Mapped[float] = mapped_column(Float)
+    excursion: Mapped[float] = mapped_column(Float)
+    peak_value: Mapped[float] = mapped_column(Float)
+    peak_frame_index: Mapped[int] = mapped_column(Integer)
+    peak_timestamp_ms: Mapped[float] = mapped_column(Float)
+    confidence: Mapped[float] = mapped_column(Float)
+    details: Mapped[dict] = mapped_column(JSON)

@@ -25,7 +25,15 @@ def row(item):
 
 
 def analysis_result(db, analysis):
+    from ..models import ROMMeasurement
+
     result = row(analysis)
+    result["rom_measurements"] = [
+        row(r)
+        for r in db.scalars(
+            select(ROMMeasurement).where(ROMMeasurement.analysis_id == analysis.id)
+        )
+    ]
     result["media"] = row(db.get(AssessmentMedia, analysis.media_id))
     result["media"].pop("storage_key", None)
     result["measurements"] = [
@@ -79,7 +87,23 @@ def analysis_result(db, analysis):
 
 
 def assessment_result(db, assessment):
+    from ..models import ROMSession, AssessmentStepResult, AssessmentProtocol
+    from ..api_protocols import get_run, protocol_result
+
     result = row(assessment)
+    session = db.get(ROMSession, assessment.id)
+    result["rom_session"] = row(session) if session else None
+    run = get_run(db, assessment.id)
+    result["assessment_protocol"] = protocol_result(db, run) if run else None
+    parent = db.scalar(
+        select(AssessmentProtocol.assessment_id)
+        .join(
+            AssessmentStepResult,
+            AssessmentStepResult.assessment_protocol_id == AssessmentProtocol.id,
+        )
+        .where(AssessmentStepResult.child_assessment_id == assessment.id)
+    )
+    result["protocol_parent_id"] = parent
     result["jobs"] = [
         row(j)
         for j in db.scalars(

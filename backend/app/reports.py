@@ -155,6 +155,19 @@ def make_pdf(snapshot: dict, db) -> bytes:
         Spacer(1, 0.4 * cm),
         p(NOTICE),
     ]
+    protocol = a.get("assessment_protocol")
+    if protocol:
+        flow += [p(protocol["snapshot"]["name"], "Heading2"),p("KINUA Assessment Protocols · versão " + protocol["snapshot"]["version"])]
+        step_states={"not_started":"Não iniciada","in_progress":"Em andamento","completed":"Concluída","skipped":"Ignorada com justificativa"}
+        for index,step in enumerate(protocol["steps"],1):
+            flow.append(p(f"{index}. {step['definition']['name']} · {step_states[step['state']]}","Heading3"))
+            flow.append(p("Resultado profissional: " + (step["result"] or "Não registrado.")))
+            if step["note"]: flow.append(p("Observação / justificativa: " + step["note"]))
+            if step["completed_at"]: flow.append(p("Concluída em " + step["completed_at"]))
+            if step["skipped_at"]: flow.append(p("Ignorada em " + step["skipped_at"]))
+            if step["child_assessment_id"]: flow.append(p("Avaliação vinculada: " + step["child_assessment_id"]))
+        for child in snapshot.get("protocol_children",[]):
+            flow += [p("Revisão da captura " + child["id"],"Heading3"),p("Estado: " + label(child["status"])),p("Observações: " + (child["notes"] or "Não registradas.")),p("Conclusão profissional: " + (child["conclusion"] or "Ainda não concluída."))]
     for analysis in a["analyses"]:
         flow += [p("Captura · " + analysis["media"]["view"], "Heading2")]
         media = db.get(AssessmentMedia, analysis["media_id"])
@@ -163,6 +176,13 @@ def make_pdf(snapshot: dict, db) -> bytes:
         )
         frames = analysis["frames"]
         motion = analysis.get("motion", {})
+        if motion.get("rom"):
+            config=motion["rom"]
+            flow += [p("KINUA ROM · " + config["name"],"Heading2"),p("Plano: " + ("frontal" if config["plane"]=="frontal" else "sagital") + " · versão " + config["version"])]
+            for record in analysis.get("rom_measurements",[]):
+                side="Direito" if record["side"]=="right" else "Esquerdo"
+                peak_label="Flexão residual mínima" if config["direction"]<0 else "Pico observado"
+                flow += [p(side,"Heading3"),p(f"{peak_label}: {record['peak_value']:.1f}° · mínimo {record['minimum']:.1f}° · máximo {record['maximum']:.1f}° · excursão observada {record['excursion']:.1f}°."),p(f"Frame do pico: {record['peak_frame_index']} · {record['peak_timestamp_ms']/1000:.2f} s · visibilidade no pico {record['confidence']*100:.0f}%."),p(f"Amostras válidas: {record['details']['valid_samples']}/{record['details']['total_samples']}. Visibilidade não representa acurácia clínica.")]
         indexes = [0]
         if motion:
             indexes += [

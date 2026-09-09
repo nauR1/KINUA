@@ -33,6 +33,13 @@ export type Patient = {
   details: Record<string, string | number | null>;
 };
 export type Assessment = {
+  assessment_protocol?: import("./protocols").ProtocolRun | null;
+  protocol_parent_id?: string | null;
+  rom_session?: {
+    movement: string;
+    version: string;
+    definition: import("./protocols").ROMDefinition;
+  } | null;
   id: string;
   patient_id: string;
   kind: string;
@@ -83,6 +90,7 @@ export type Finding = {
   reviews: { note: string; state: string; created_at: string }[];
 };
 export type Analysis = {
+  rom_measurements?: import("./protocols").ROMRecord[];
   id: string;
   media_id: string;
   provider_version: string;
@@ -97,6 +105,7 @@ export type Analysis = {
     metadata_json?: { duration_seconds: number };
   };
   motion?: {
+    rom?: import("./protocols").ROMDefinition;
     version?: string;
     protocol: string;
     signal: string;

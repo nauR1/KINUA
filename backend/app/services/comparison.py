@@ -17,6 +17,8 @@ def compare(db, user, left_id: str, right_id: str):
         raise HTTPException(422, "Selecione duas avaliações distintas.")
     media = [db.get(m.AssessmentMedia, a.media_id) for a in analyses]
     reasons = []
+    if analyses[0].motion.get("rom",{}).get("movement") != analyses[1].motion.get("rom",{}).get("movement"):
+        reasons.append("movimento ROM")
     for attr, label in [("protocol", "protocolo"), ("side", "lado")]:
         if getattr(assessments[0], attr) != getattr(assessments[1], attr):
             reasons.append(label)

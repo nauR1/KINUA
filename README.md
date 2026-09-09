@@ -143,3 +143,13 @@ Vídeos originais também ficam privados em `STORAGE_DIR`, com hash e metadados 
 - [Evidências e limites da validação](docs/validation.md)
 
 O projeto separa medição objetiva de interpretação profissional. Sem referência científica validada no projeto, nenhum threshold clínico é ativado. As porcentagens de visibility são indicadores técnicos, não confiança diagnóstica nem garantia de acurácia.
+
+## Expansão 2.2 — Protocolos e ROM
+
+Inclui roteiros versionados em sete categorias, etapas com autosave/retomada, capturas vinculadas, revisão e PDF agregado. ROM acrescenta sete movimentos com landmarks reais, câmera e vídeo, pico/série temporal, revisão e histórico. Consulte [Protocolos](docs/protocols.md) e [ROM](docs/rom.md).
+
+Atualização: faça backup do PostgreSQL e armazenamento. No backend execute `python -m alembic upgrade head` e `python -m alembic check`; reinicie API e worker. No frontend execute `npm ci`, `npm run build` e `npm start`. A migration 6d49ba3c72e9 é aditiva e não insere pacientes.
+
+Verificação: `python -m pytest -q` no backend; `npm run typecheck`, `npm test`, `npm run lint` e `npm run build` no frontend. O E2E protocols-rom.spec.ts exige E2E_ISOLATED=1, credenciais e câmera de fixture em banco separado. Nunca execute testes de escrita na clínica.
+
+Os próximos módulos do roadmap não foram implementados nesta rodada. Testes de engenharia não constituem validação clínica; permanecem as restrições de uso e implantação previamente documentadas.

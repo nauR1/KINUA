@@ -11,6 +11,7 @@ from .schemas import VideoJobInput
 from . import models as m
 from .services.serialization import row
 from .vision.video import validate_upload
+from .rom import allowed_views
 
 router = APIRouter()
 
@@ -28,6 +29,11 @@ def upload_video(
         raise HTTPException(409, "Use uma avaliação de vídeo ainda não concluída.")
     if view not in ("anterior", "posterior", "lateral_left", "lateral_right"):
         raise HTTPException(422, "Vista inválida.")
+    rom = db.get(m.ROMSession, assessment.id)
+    if rom and view not in allowed_views(rom.definition, assessment.side):
+        raise HTTPException(
+            422, "A vista deve corresponder ao plano e lado definidos para este ROM."
+        )
     if (
         assessment.protocol == "single_leg_squat"
         and view.startswith("lateral_")
@@ -93,6 +99,9 @@ def enqueue(
     )
     if not media or not media.mime.startswith("video/"):
         raise HTTPException(404, "Vídeo não encontrado.")
+    rom = db.get(m.ROMSession, assessment.id)
+    if rom and media.view not in allowed_views(rom.definition, assessment.side):
+        raise HTTPException(422, "Plano incompatível com o ROM selecionado.")
     if db.scalar(select(m.Analysis).where(m.Analysis.media_id == media.id)):
         raise HTTPException(409, "Vídeo já analisado. Resultado imutável.")
     job = db.scalar(select(m.ProcessingJob).where(m.ProcessingJob.media_id == media.id))

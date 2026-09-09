@@ -11,6 +11,7 @@ import {
 import { drawSkeleton } from "@/vision/draw";
 import MotionTimeline from "./MotionTimeline";
 import BodyMap from "./BodyMap";
+import { ROMSummary } from "./ROM";
 const stateNames: Record<string, string> = {
   needs_review: "A revisar",
   professional_confirmed: "Confirmado",
@@ -250,6 +251,7 @@ export default function Results({
           Valores preservados com as versões originais dos motores.
         </span>
       </div>
+      <ROMSummary analysis={analysis} frame={frame} onSelect={setFrame} />
       <div
         className={
           "results-layout" + (analysis.motion?.version ? " motion-results" : "")

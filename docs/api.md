@@ -48,3 +48,21 @@ Job: `{media_id, fps: 2 | 5 | 10, camera_level_confirmed: true, view_confirmed: 
 Snapshot: `jobs`, `analyses[].motion` e `frames[].measurements/phase/quality`, além dos landmarks. Séries preservam null; `frame_index` é o índice original decodificado, `timestamp_ms` o tempo original e `sample_index` a posição na lista amostrada.
 
 PDF de evolução: `/assessments/{id}/report?compare_to={analysis_a}&analysis_id={analysis_b}`. B deve pertencer à avaliação da rota, A a outra avaliação do mesmo paciente. Requisitos de compatibilidade também são aplicados. O relatório preserva ambos os IDs, datas e diferenças.
+
+## Assessment Protocols e ROM
+
+Todos exigem sessão, autorização por clínica e proteção CSRF nas mutações.
+
+- GET /protocols: categorias e definições.
+- GET /protocols/pending: protocolos pendentes.
+- POST /assessment-protocols: patient_id, version_id.
+- GET /assessment-protocols/{id}: snapshot e etapas.
+- PATCH /assessment-protocols/{id}/steps/{key}: revision, state, result, note; conflito retorna 409.
+- POST /assessment-protocols/{id}/steps/{key}/capture: movement e side quando ROM; cria ou retorna avaliação filha.
+- POST /assessment-protocols/{id}/complete: conclusion; verifica etapas e filhas.
+- GET /rom/movements: fórmulas, planos, instruções e limitações.
+- POST /rom/assessments: patient_id, movement, side.
+- POST /rom/preview: movement, side, view, landmarks, width, height, brightness, plane_confirmed=true. Não persiste a prévia.
+- GET /patients/{id}/rom: histórico e revisão.
+
+ROM reutiliza upload, jobs, resultados, revisão e relatório existentes. PDF do protocolo agrega snapshots das avaliações filhas autorizadas.

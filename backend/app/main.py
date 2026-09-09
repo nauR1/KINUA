@@ -37,10 +37,12 @@ from .reports import make_pdf
 from .clinical.engine import RULESET
 from .core.body_limit import BodyLimitMiddleware
 from .api_video import router as video_router
+from .api_protocols import router as protocol_router
 from .services.comparison import compare
 
-app = FastAPI(title="KINUA API", version="2.1.0")
+app = FastAPI(title="KINUA API", version="2.2.0")
 app.include_router(video_router)
+app.include_router(protocol_router)
 
 
 @app.get("/comparisons")
@@ -326,6 +328,14 @@ def update_assessment(
         )
     if body.status == "completed":
         if db.scalar(
+            select(m.AssessmentProtocol.id).where(
+                m.AssessmentProtocol.assessment_id == assessment.id
+            )
+        ):
+            raise HTTPException(
+                409, "Conclua pelo roteiro do protocolo, após revisar todas as etapas."
+            )
+        if db.scalar(
             select(m.ProcessingJob).where(
                 m.ProcessingJob.assessment_id == assessment.id,
                 m.ProcessingJob.state.in_(["pending", "running"]),
@@ -474,6 +484,15 @@ def report(
         "patient": row(patient_for(db, assessment.patient_id, user)),
         "professional": db.get(m.User, assessment.created_by).name,
     }
+    if snapshot["assessment"].get("assessment_protocol"):
+        children = []
+        for step in snapshot["assessment"]["assessment_protocol"]["steps"]:
+            if step["child_assessment_id"]:
+                child = assessment_for(db, step["child_assessment_id"], user)
+                child_result = assessment_result(db, child)
+                children.append(child_result)
+                snapshot["assessment"]["analyses"].extend(child_result["analyses"])
+        snapshot["protocol_children"] = children
     if compare_to:
         target = db.get(m.Analysis, analysis_id) if analysis_id else None
         if not target or target.assessment_id != assessment.id:
