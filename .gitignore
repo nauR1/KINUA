@@ -1,0 +1,17 @@
+.venv/
+node_modules/
+.next/
+.env*
+!.env.example
+*.db
+*.db-*
+__pycache__/
+.pytest_cache/
+data/
+*.log
+frontend/public/models/*.task
+frontend/public/wasm/
+frontend/public/pose-worker.js
+test-results/
+playwright-report/
+*.tsbuildinfo
