@@ -1,0 +1,12 @@
+**/node_modules
+**/.next
+**/__pycache__
+**/.pytest_cache
+**/.env*
+**/data
+**/test-results
+**/playwright-report
+.git
+
+!backend/migrations/data
+!backend/migrations/data/*.json

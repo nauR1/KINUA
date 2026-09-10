@@ -1,0 +1,16 @@
+{
+  "version": "1.0.0",
+  "rules": [
+    {
+      "id": "frontal_knee_pattern",
+      "kind": "experimental",
+      "status": "threshold_pending_validation",
+      "measurement": "right_knee_projection",
+      "threshold": null,
+      "source": null,
+      "enabled": false,
+      "related_factors": ["Controle motor", "Estratégia de quadril", "Mobilidade do tornozelo"],
+      "suggested_tests": ["Avaliação de força", "Dorsiflexão do tornozelo", "Teste funcional escolhido pelo profissional"]
+    }
+  ]
+}

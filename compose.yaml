@@ -1,0 +1,66 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-biometria}
+      POSTGRES_USER: ${POSTGRES_USER:-biometria}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no .env}
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 15
+    restart: unless-stopped
+  backend:
+    build:
+      context: .
+      dockerfile: infra/backend.Dockerfile
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-biometria}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-biometria}
+      STORAGE_DIR: /app/data/media
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      SECURE_COOKIES: ${SECURE_COOKIES:-false}
+    volumes:
+      - media:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+  worker:
+    build:
+      context: .
+      dockerfile: infra/backend.Dockerfile
+    command: [python, -m, app.jobs]
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      SECURE_COOKIES: ${SECURE_COOKIES:-false}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-biometria}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-biometria}
+      STORAGE_DIR: /app/data/media
+    volumes:
+      - media:/app/data
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+  frontend:
+    build:
+      context: .
+      dockerfile: infra/frontend.Dockerfile
+    ports:
+      - '127.0.0.1:3000:3000'
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+volumes:
+  database:
+  media:

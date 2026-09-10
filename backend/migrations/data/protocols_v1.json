@@ -1,0 +1,547 @@
+{
+  "categories": [
+    {
+      "id": "whole_body",
+      "name": "Corpo inteiro"
+    },
+    {
+      "id": "shoulder",
+      "name": "Ombro"
+    },
+    {
+      "id": "spine",
+      "name": "Coluna"
+    },
+    {
+      "id": "hip",
+      "name": "Quadril"
+    },
+    {
+      "id": "knee",
+      "name": "Joelho"
+    },
+    {
+      "id": "ankle",
+      "name": "Tornozelo"
+    },
+    {
+      "id": "sports",
+      "name": "Esportivo"
+    }
+  ],
+  "protocols": [
+    {
+      "id": "whole_body",
+      "category_id": "whole_body",
+      "name": "Protocolo de corpo inteiro",
+      "version": "1.0.0",
+      "steps": [
+        {
+          "key": "history",
+          "name": "Anamnese",
+          "kind": "manual",
+          "optional": false,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        },
+        {
+          "key": "posture",
+          "name": "Avaliação postural",
+          "kind": "capture",
+          "optional": true,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional.",
+          "capture_protocol": "static"
+        },
+        {
+          "key": "rom",
+          "name": "Amplitude de movimento",
+          "kind": "rom",
+          "optional": true,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional.",
+          "movements": [
+            "shoulder_flexion",
+            "shoulder_abduction",
+            "elbow_flexion",
+            "elbow_extension",
+            "hip_flexion",
+            "knee_flexion",
+            "knee_extension"
+          ]
+        },
+        {
+          "key": "manual_tests",
+          "name": "Registro de testes manuais",
+          "kind": "manual",
+          "optional": true,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        },
+        {
+          "key": "results",
+          "name": "Resultados",
+          "kind": "manual",
+          "optional": false,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        },
+        {
+          "key": "review",
+          "name": "Revisão profissional",
+          "kind": "manual",
+          "optional": false,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        },
+        {
+          "key": "report",
+          "name": "Relatório",
+          "kind": "manual",
+          "optional": false,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        }
+      ],
+      "scope": "Assessment Protocols + ROM; módulos futuros não disponíveis"
+    },
+    {
+      "id": "shoulder",
+      "category_id": "shoulder",
+      "name": "Protocolo de ombro",
+      "version": "1.0.0",
+      "steps": [
+        {
+          "key": "history",
+          "name": "Anamnese",
+          "kind": "manual",
+          "optional": false,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        },
+        {
+          "key": "posture",
+          "name": "Avaliação postural",
+          "kind": "capture",
+          "optional": true,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional.",
+          "capture_protocol": "static"
+        },
+        {
+          "key": "rom",
+          "name": "Amplitude de movimento",
+          "kind": "rom",
+          "optional": true,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional.",
+          "movements": [
+            "shoulder_flexion",
+            "shoulder_abduction"
+          ]
+        },
+        {
+          "key": "manual_tests",
+          "name": "Registro de testes manuais",
+          "kind": "manual",
+          "optional": true,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        },
+        {
+          "key": "results",
+          "name": "Resultados",
+          "kind": "manual",
+          "optional": false,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        },
+        {
+          "key": "review",
+          "name": "Revisão profissional",
+          "kind": "manual",
+          "optional": false,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        },
+        {
+          "key": "report",
+          "name": "Relatório",
+          "kind": "manual",
+          "optional": false,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        }
+      ],
+      "scope": "Assessment Protocols + ROM; módulos futuros não disponíveis"
+    },
+    {
+      "id": "spine",
+      "category_id": "spine",
+      "name": "Protocolo de coluna",
+      "version": "1.0.0",
+      "steps": [
+        {
+          "key": "history",
+          "name": "Anamnese",
+          "kind": "manual",
+          "optional": false,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        },
+        {
+          "key": "posture",
+          "name": "Avaliação postural",
+          "kind": "capture",
+          "optional": true,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional.",
+          "capture_protocol": "static"
+        },
+        {
+          "key": "manual_tests",
+          "name": "Registro de testes manuais",
+          "kind": "manual",
+          "optional": true,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        },
+        {
+          "key": "results",
+          "name": "Resultados",
+          "kind": "manual",
+          "optional": false,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        },
+        {
+          "key": "review",
+          "name": "Revisão profissional",
+          "kind": "manual",
+          "optional": false,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        },
+        {
+          "key": "report",
+          "name": "Relatório",
+          "kind": "manual",
+          "optional": false,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        }
+      ],
+      "scope": "Assessment Protocols + ROM; módulos futuros não disponíveis"
+    },
+    {
+      "id": "hip",
+      "category_id": "hip",
+      "name": "Protocolo de quadril",
+      "version": "1.0.0",
+      "steps": [
+        {
+          "key": "history",
+          "name": "Anamnese",
+          "kind": "manual",
+          "optional": false,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        },
+        {
+          "key": "posture",
+          "name": "Avaliação postural",
+          "kind": "capture",
+          "optional": true,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional.",
+          "capture_protocol": "static"
+        },
+        {
+          "key": "rom",
+          "name": "Amplitude de movimento",
+          "kind": "rom",
+          "optional": true,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional.",
+          "movements": [
+            "hip_flexion"
+          ]
+        },
+        {
+          "key": "manual_tests",
+          "name": "Registro de testes manuais",
+          "kind": "manual",
+          "optional": true,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        },
+        {
+          "key": "results",
+          "name": "Resultados",
+          "kind": "manual",
+          "optional": false,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        },
+        {
+          "key": "review",
+          "name": "Revisão profissional",
+          "kind": "manual",
+          "optional": false,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        },
+        {
+          "key": "report",
+          "name": "Relatório",
+          "kind": "manual",
+          "optional": false,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        }
+      ],
+      "scope": "Assessment Protocols + ROM; módulos futuros não disponíveis"
+    },
+    {
+      "id": "knee",
+      "category_id": "knee",
+      "name": "Protocolo de joelho",
+      "version": "1.0.0",
+      "steps": [
+        {
+          "key": "history",
+          "name": "Anamnese",
+          "kind": "manual",
+          "optional": false,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        },
+        {
+          "key": "pain",
+          "name": "Mapa da dor",
+          "kind": "deferred",
+          "optional": true,
+          "available": false,
+          "instructions": "Módulo reservado para outra rodada. Registre a justificativa para pular."
+        },
+        {
+          "key": "posture",
+          "name": "Avaliação postural",
+          "kind": "capture",
+          "optional": true,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional.",
+          "capture_protocol": "static"
+        },
+        {
+          "key": "rom",
+          "name": "Amplitude de movimento",
+          "kind": "rom",
+          "optional": true,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional.",
+          "movements": [
+            "knee_flexion",
+            "knee_extension"
+          ]
+        },
+        {
+          "key": "bilateral",
+          "name": "Agachamento bilateral",
+          "kind": "capture",
+          "optional": true,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional.",
+          "capture_protocol": "bilateral_squat"
+        },
+        {
+          "key": "unilateral",
+          "name": "Agachamento unipodal",
+          "kind": "capture",
+          "optional": true,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional.",
+          "capture_protocol": "single_leg_squat"
+        },
+        {
+          "key": "step_down",
+          "name": "Step-down",
+          "kind": "deferred",
+          "optional": true,
+          "available": false,
+          "instructions": "Teste ainda não implementado. Registre a justificativa para pular."
+        },
+        {
+          "key": "comparison",
+          "name": "Comparação direita/esquerda",
+          "kind": "manual",
+          "optional": true,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        },
+        {
+          "key": "manual_tests",
+          "name": "Testes clínicos manuais",
+          "kind": "manual",
+          "optional": true,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        },
+        {
+          "key": "results",
+          "name": "Resultados",
+          "kind": "manual",
+          "optional": false,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        },
+        {
+          "key": "review",
+          "name": "Revisão profissional",
+          "kind": "manual",
+          "optional": false,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        },
+        {
+          "key": "report",
+          "name": "Relatório",
+          "kind": "manual",
+          "optional": false,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        }
+      ],
+      "scope": "Assessment Protocols + ROM; módulos futuros não disponíveis"
+    },
+    {
+      "id": "ankle",
+      "category_id": "ankle",
+      "name": "Protocolo de tornozelo",
+      "version": "1.0.0",
+      "steps": [
+        {
+          "key": "history",
+          "name": "Anamnese",
+          "kind": "manual",
+          "optional": false,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        },
+        {
+          "key": "posture",
+          "name": "Avaliação postural",
+          "kind": "capture",
+          "optional": true,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional.",
+          "capture_protocol": "static"
+        },
+        {
+          "key": "manual_tests",
+          "name": "Registro de testes manuais",
+          "kind": "manual",
+          "optional": true,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        },
+        {
+          "key": "results",
+          "name": "Resultados",
+          "kind": "manual",
+          "optional": false,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        },
+        {
+          "key": "review",
+          "name": "Revisão profissional",
+          "kind": "manual",
+          "optional": false,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        },
+        {
+          "key": "report",
+          "name": "Relatório",
+          "kind": "manual",
+          "optional": false,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        }
+      ],
+      "scope": "Assessment Protocols + ROM; módulos futuros não disponíveis"
+    },
+    {
+      "id": "sports",
+      "category_id": "sports",
+      "name": "Protocolo de esportivo",
+      "version": "1.0.0",
+      "steps": [
+        {
+          "key": "history",
+          "name": "Anamnese",
+          "kind": "manual",
+          "optional": false,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        },
+        {
+          "key": "posture",
+          "name": "Avaliação postural",
+          "kind": "capture",
+          "optional": true,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional.",
+          "capture_protocol": "static"
+        },
+        {
+          "key": "rom",
+          "name": "Amplitude de movimento",
+          "kind": "rom",
+          "optional": true,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional.",
+          "movements": [
+            "knee_flexion",
+            "knee_extension",
+            "hip_flexion"
+          ]
+        },
+        {
+          "key": "manual_tests",
+          "name": "Registro de testes manuais",
+          "kind": "manual",
+          "optional": true,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        },
+        {
+          "key": "results",
+          "name": "Resultados",
+          "kind": "manual",
+          "optional": false,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        },
+        {
+          "key": "review",
+          "name": "Revisão profissional",
+          "kind": "manual",
+          "optional": false,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        },
+        {
+          "key": "report",
+          "name": "Relatório",
+          "kind": "manual",
+          "optional": false,
+          "available": true,
+          "instructions": "Registre o resultado observado e sua interpretação profissional."
+        }
+      ],
+      "scope": "Assessment Protocols + ROM; módulos futuros não disponíveis"
+    }
+  ]
+}

@@ -1,0 +1,561 @@
+{
+  "date": "2026-09-09",
+  "purpose": "Engineering verification only; no clinical approval",
+  "baseline_before_fixes": {
+    "tests": 4,
+    "failures": 3,
+    "errors": 0,
+    "skipped": 0,
+    "cases": [
+      {
+        "suite": "tests.test_readiness",
+        "name": "test_partial_assessment_update_preserves_existing_fields",
+        "status": "failed"
+      },
+      {
+        "suite": "tests.test_readiness",
+        "name": "test_replaced_media_is_rejected[media]",
+        "status": "failed"
+      },
+      {
+        "suite": "tests.test_readiness",
+        "name": "test_replaced_media_is_rejected[report]",
+        "status": "failed"
+      },
+      {
+        "suite": "tests.test_readiness",
+        "name": "test_angle_against_constructed_reference_sweep",
+        "status": "passed"
+      }
+    ]
+  },
+  "sqlite_after_fixes": {
+    "tests": 51,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "cases": [
+      {
+        "suite": "tests.test_api",
+        "name": "test_auth_and_logout",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_api",
+        "name": "test_rate_limit",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_api",
+        "name": "test_csrf",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_api",
+        "name": "test_patient_validation",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_api",
+        "name": "test_complete_workflow_and_immutability",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_api",
+        "name": "test_cross_clinic_isolation",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_api",
+        "name": "test_invalid_upload",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_api",
+        "name": "test_media_cannot_be_attached_to_other_assessment",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_api",
+        "name": "test_admin_user_creation",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_angle[a0-b0-c0-90]",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_angle[a1-b1-c1-180]",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_angle[a2-b2-c2-45]",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_degenerate",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_symmetric_pose",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_aspect_ratio_correction",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_untrusted_capture_suppresses_measurements[options0]",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_untrusted_capture_suppresses_measurements[options1]",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_untrusted_capture_suppresses_measurements[options2]",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_occlusion_only_blocks_dependent_measurements",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_sagittal_side",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_no_experimental_clinical_trigger",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_landmark_validation[x-nan]",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_landmark_validation[y-inf]",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_landmark_validation[visibility-1.1]",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_landmark_validation[name-fake_joint]",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_duplicate_points",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_body_limit",
+        "name": "test_chunked_body_is_rejected_before_parsing",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_body_limit",
+        "name": "test_bounded_body_preserves_payload",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_comparison",
+        "name": "test_comparison_preserves_values_and_rejects_versions",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_comparison",
+        "name": "test_comparison_scope",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_motion",
+        "name": "test_complete_and_incomplete_squats",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_motion",
+        "name": "test_gaps_never_bridge_repetitions",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_motion",
+        "name": "test_stationary_and_no_stable_start",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_motion",
+        "name": "test_arm_phases_are_not_squat_labels",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_motion",
+        "name": "test_medial_projection_sign_and_mirror",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_motion",
+        "name": "test_summary_uses_real_dt_and_preserves_gap",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_motion",
+        "name": "test_protocol_validation",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_readiness",
+        "name": "test_partial_assessment_update_preserves_existing_fields",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_readiness",
+        "name": "test_replaced_media_is_rejected[False-media]",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_readiness",
+        "name": "test_replaced_media_is_rejected[False-report]",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_readiness",
+        "name": "test_replaced_media_is_rejected[True-media]",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_readiness",
+        "name": "test_replaced_media_is_rejected[True-report]",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_readiness",
+        "name": "test_angle_against_constructed_reference_sweep",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_readiness",
+        "name": "test_production_config_refuses_insecure_defaults",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_storage",
+        "name": "test_image_metadata_removed",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_storage",
+        "name": "test_storage_path_traversal",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_storage",
+        "name": "test_small_image_rejected",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_video",
+        "name": "test_video_timestamps_and_sampling",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_video",
+        "name": "test_queue_cancel_retry_and_scope",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_video",
+        "name": "test_worker_persists_series_report_and_immutability",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_video",
+        "name": "test_video_validation_and_empty_detection",
+        "status": "passed"
+      }
+    ]
+  },
+  "postgresql_after_fixes": {
+    "tests": 51,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "cases": [
+      {
+        "suite": "tests.test_api",
+        "name": "test_auth_and_logout",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_api",
+        "name": "test_rate_limit",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_api",
+        "name": "test_csrf",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_api",
+        "name": "test_patient_validation",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_api",
+        "name": "test_complete_workflow_and_immutability",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_api",
+        "name": "test_cross_clinic_isolation",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_api",
+        "name": "test_invalid_upload",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_api",
+        "name": "test_media_cannot_be_attached_to_other_assessment",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_api",
+        "name": "test_admin_user_creation",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_angle[a0-b0-c0-90]",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_angle[a1-b1-c1-180]",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_angle[a2-b2-c2-45]",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_degenerate",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_symmetric_pose",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_aspect_ratio_correction",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_untrusted_capture_suppresses_measurements[options0]",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_untrusted_capture_suppresses_measurements[options1]",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_untrusted_capture_suppresses_measurements[options2]",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_occlusion_only_blocks_dependent_measurements",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_sagittal_side",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_no_experimental_clinical_trigger",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_landmark_validation[x-nan]",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_landmark_validation[y-inf]",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_landmark_validation[visibility-1.1]",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_landmark_validation[name-fake_joint]",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_biomechanics",
+        "name": "test_duplicate_points",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_body_limit",
+        "name": "test_chunked_body_is_rejected_before_parsing",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_body_limit",
+        "name": "test_bounded_body_preserves_payload",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_comparison",
+        "name": "test_comparison_preserves_values_and_rejects_versions",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_comparison",
+        "name": "test_comparison_scope",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_motion",
+        "name": "test_complete_and_incomplete_squats",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_motion",
+        "name": "test_gaps_never_bridge_repetitions",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_motion",
+        "name": "test_stationary_and_no_stable_start",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_motion",
+        "name": "test_arm_phases_are_not_squat_labels",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_motion",
+        "name": "test_medial_projection_sign_and_mirror",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_motion",
+        "name": "test_summary_uses_real_dt_and_preserves_gap",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_motion",
+        "name": "test_protocol_validation",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_readiness",
+        "name": "test_partial_assessment_update_preserves_existing_fields",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_readiness",
+        "name": "test_replaced_media_is_rejected[False-media]",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_readiness",
+        "name": "test_replaced_media_is_rejected[False-report]",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_readiness",
+        "name": "test_replaced_media_is_rejected[True-media]",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_readiness",
+        "name": "test_replaced_media_is_rejected[True-report]",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_readiness",
+        "name": "test_angle_against_constructed_reference_sweep",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_readiness",
+        "name": "test_production_config_refuses_insecure_defaults",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_storage",
+        "name": "test_image_metadata_removed",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_storage",
+        "name": "test_storage_path_traversal",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_storage",
+        "name": "test_small_image_rejected",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_video",
+        "name": "test_video_timestamps_and_sampling",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_video",
+        "name": "test_queue_cancel_retry_and_scope",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_video",
+        "name": "test_worker_persists_series_report_and_immutability",
+        "status": "passed"
+      },
+      {
+        "suite": "tests.test_video",
+        "name": "test_video_validation_and_empty_detection",
+        "status": "passed"
+      }
+    ]
+  },
+  "clinical_validation": "not_performed_no_paired_reference_dataset",
+  "internet_deployment_validation": "not_performed_no_target_environment",
+  "production_patient_data_modified_by_tests": false
+}

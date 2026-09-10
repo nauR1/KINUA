@@ -1,0 +1,649 @@
+body {
+  font-family: var(--font-manrope), "Segoe UI", sans-serif;
+}
+button,
+.button,
+input,
+select,
+textarea {
+  border-radius: var(--radius-sm);
+}
+button,
+.button {
+  transition:
+    background var(--transition),
+    border-color var(--transition);
+}
+button:hover:not(:disabled),
+.button:hover {
+  filter: none;
+}
+button:not(.secondary):not(.ghost):not(.text-button):not(.icon-button):not(
+    .patient-link
+  ):not(.theme-toggle):hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+button:focus-visible,
+a:focus-visible,
+summary:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid var(--brand-teal);
+  outline-offset: 3px;
+}
+.panel {
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+}
+.kinua-logo {
+  display: inline-flex;
+  flex-direction: column;
+  flex: none;
+  max-width: 100%;
+  vertical-align: middle;
+}
+.kinua-logo > svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.kinua-navy {
+  fill: var(--brand-navy);
+}
+.kinua-teal {
+  fill: var(--brand-teal);
+}
+.kinua-logo--dark .kinua-navy {
+  fill: var(--brand-white);
+}
+.kinua-logo--monochrome .kinua-navy,
+.kinua-logo--monochrome .kinua-teal {
+  fill: currentColor;
+}
+.kinua-tagline {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  line-height: 1.8;
+  margin-top: 8px;
+  color: var(--muted);
+}
+.kinua-logo--dark .kinua-tagline {
+  color: var(--on-sidebar);
+}
+.brand {
+  letter-spacing: normal;
+}
+.brand > .kinua-logo:first-child {
+  display: inline-flex;
+  border: none;
+  border-radius: 0;
+  height: auto;
+  color: inherit;
+}
+.sidebar {
+  width: 248px;
+  padding: 28px 20px 22px;
+  z-index: var(--z-navigation);
+}
+.main-shell {
+  margin-left: 248px;
+}
+.workspace-label {
+  margin-top: 46px;
+  color: var(--on-sidebar);
+  font-size: 10px;
+}
+.sidebar nav button {
+  color: var(--on-sidebar);
+  border-radius: var(--radius-sm);
+  min-height: 44px;
+}
+.sidebar nav button.active,
+.sidebar nav button:hover:not(:disabled) {
+  background: var(--sidebar-active) !important;
+  color: var(--brand-white);
+}
+.sidebar nav button.active {
+  box-shadow: inset 3px 0 var(--brand-teal);
+}
+.sidebar nav button.active svg {
+  color: var(--brand-teal);
+}
+.sidebar .clinical-note,
+.sidebar .user-block {
+  border-color: var(--sidebar-line);
+}
+.sidebar .clinical-note,
+.sidebar .user-block small,
+.theme-toggle {
+  color: var(--on-sidebar);
+}
+.sidebar .clinical-note strong {
+  color: var(--brand-white);
+}
+.sidebar .icon-button {
+  color: var(--on-sidebar);
+}
+.user-block .avatar {
+  background: var(--sidebar-active);
+  color: var(--brand-mint);
+}
+.sidebar-collapse {
+  position: absolute;
+  top: 100px;
+  right: 22px;
+  background: transparent;
+  color: var(--on-sidebar);
+  padding: 7px;
+}
+.sidebar-collapsed .sidebar {
+  width: 84px;
+  padding-inline: 16px;
+  align-items: center;
+}
+.sidebar-collapsed .main-shell {
+  margin-left: 84px;
+}
+.sidebar-collapsed .workspace-label,
+.sidebar-collapsed .nav-label,
+.sidebar-collapsed .clinical-note,
+.sidebar-collapsed .user-block > div,
+.sidebar-collapsed .user-block > .avatar {
+  display: none;
+}
+.sidebar-collapsed .sidebar-collapse {
+  right: 23px;
+  top: 102px;
+}
+.sidebar-collapsed .sidebar nav {
+  margin-top: 75px;
+}
+.sidebar-collapsed .sidebar nav button {
+  padding: 13px;
+}
+.sidebar-collapsed .sidebar-bottom {
+  width: 100%;
+}
+.sidebar-collapsed .user-block,
+.sidebar-collapsed .theme-toggle {
+  justify-content: center;
+}
+.header-tools {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+.header-search {
+  width: 230px;
+}
+.header-search input {
+  min-height: 36px;
+  font-size: 12px;
+  background: var(--bg);
+}
+.header-profile {
+  border: 1px solid var(--line);
+  padding: 0;
+  cursor: pointer;
+}
+.topbar {
+  height: 80px;
+}
+.content {
+  max-width: 1560px;
+  padding: 36px;
+}
+.page-heading {
+  margin-bottom: 30px;
+}
+.page-heading h1 {
+  font-size: 32px;
+  font-weight: 650;
+  letter-spacing: -1.1px;
+}
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: 1.8px;
+}
+.stat-card {
+  position: relative;
+  padding: 23px;
+  overflow: hidden;
+}
+.stat-card > div {
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 36px;
+}
+.stat-card > strong {
+  font-size: 36px;
+  font-weight: 650;
+  margin-top: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.metric-icon {
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft);
+  border-radius: 12px;
+  padding: 10px;
+}
+.metric-caption {
+  color: var(--muted);
+  font-size: 10px;
+}
+.workflow-banner {
+  background: var(--accent-soft);
+  border-color: var(--line);
+  position: relative;
+  overflow: hidden;
+  min-height: 170px;
+}
+.workflow-banner > div,
+.workflow-banner > button {
+  position: relative;
+  z-index: 1;
+}
+.workflow-banner p {
+  color: var(--muted);
+  max-width: 460px;
+}
+.movement-art {
+  color: var(--brand-teal);
+}
+.movement-wave {
+  stroke: currentColor;
+  stroke-width: 1.5;
+  opacity: 0.5;
+}
+.secondary-wave {
+  stroke: var(--chart-secondary);
+  opacity: 0.22;
+}
+.faint-wave {
+  opacity: 0.16;
+}
+.movement-person {
+  stroke: currentColor;
+  stroke-width: 2;
+  opacity: 0.75;
+}
+.movement-joints {
+  fill: var(--brand-mint);
+  stroke: var(--brand-teal);
+  stroke-width: 1.5;
+}
+.movement-orbit {
+  stroke: currentColor;
+  opacity: 0.25;
+}
+.workflow-banner > .movement-art {
+  position: absolute;
+  width: 430px;
+  right: 4%;
+  top: -150px;
+  opacity: 0.35;
+  pointer-events: none;
+}
+.empty-emblem {
+  display: inline-grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  background: var(--accent-soft);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  margin-bottom: 18px;
+}
+.empty h3 {
+  font-size: 16px;
+}
+.empty p {
+  max-width: 340px;
+  margin-inline: auto;
+}
+.recent-patients .empty {
+  padding: 24px 0;
+}
+.recent-patients .empty h3 {
+  font-size: 14px;
+}
+th {
+  background: var(--bg);
+  font-size: 11px;
+}
+tbody tr:hover {
+  background: var(--accent-soft);
+}
+input,
+select,
+textarea {
+  border-color: var(--line);
+}
+.error {
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-color: var(--brand-coral);
+}
+.warning {
+  color: var(--warning);
+  background: var(--warning-soft);
+}
+.badge {
+  background: var(--bg);
+  color: var(--muted);
+}
+.badge.positive {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.camera-stage,
+.video-stage,
+.result-image,
+.comparison-images video {
+  background: var(--brand-navy);
+}
+.chart-legend .opposite {
+  color: var(--chart-secondary);
+}
+.body-map svg {
+  color: var(--muted);
+}
+.login-page {
+  background: var(--surface);
+}
+.login-intro {
+  background: var(--brand-navy);
+  position: relative;
+  overflow: hidden;
+  padding: 48px 56px;
+}
+.login-intro > .kinua-logo,
+.login-intro > p,
+.login-message {
+  position: relative;
+  z-index: 1;
+}
+.login-art {
+  position: absolute;
+  right: -130px;
+  top: 12%;
+  width: 680px;
+  opacity: 0.45;
+  pointer-events: none;
+}
+.login-intro h1 {
+  max-width: 550px;
+  font-size: clamp(36px, 3.7vw, 58px);
+  line-height: 1.2;
+  letter-spacing: -2px;
+  font-weight: 500;
+}
+.login-intro .eyebrow {
+  color: var(--brand-mint);
+  font-size: 9px;
+}
+.login-intro p {
+  color: var(--on-sidebar);
+  line-height: 1.9;
+}
+.login-intro .small {
+  font-size: 11px;
+}
+.login-message {
+  padding-block: 64px;
+}
+.login-lines {
+  border-color: var(--sidebar-line);
+  color: var(--brand-mint);
+  font-size: 12px;
+}
+.login-form {
+  position: relative;
+}
+.login-form h2 {
+  font-size: 30px;
+  font-weight: 650;
+}
+.login-form .eyebrow {
+  display: inline-block;
+  margin-bottom: 22px;
+}
+.login-form button.full {
+  width: 100%;
+  justify-content: space-between;
+}
+.login-help {
+  border-top: 1px solid var(--line);
+  padding-top: 22px;
+}
+.brand-pulse {
+  animation: brand-pulse 2s ease-in-out infinite;
+}
+@keyframes brand-pulse {
+  50% {
+    opacity: 0.55;
+    transform: translateY(-3px);
+  }
+}
+.skip-link {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 100;
+  padding: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  transform: translateY(-160%);
+}
+.skip-link:focus {
+  transform: translateY(0);
+}
+[data-theme="dark"] .workflow-banner {
+  background: var(--accent-soft);
+  border-color: var(--line);
+}
+[data-theme="dark"] .workflow-banner p {
+  color: var(--muted);
+}
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  border-color: var(--line);
+}
+[data-theme="dark"] .badge {
+  background: var(--bg);
+  color: var(--muted);
+}
+[data-theme="dark"] .kinua-logo--light .kinua-navy {
+  fill: var(--ink);
+}
+[data-theme="dark"] button.sidebar-collapse {
+  color: var(--on-sidebar) !important;
+}
+[data-theme="dark"] button.header-profile {
+  color: var(--brand-mint) !important;
+}
+@media (max-width: 1150px) {
+  .sidebar {
+    width: 210px;
+    padding-inline: 15px;
+  }
+  .main-shell {
+    margin-left: 210px;
+  }
+  .content {
+    padding: 28px 24px;
+  }
+  .header-date {
+    display: none;
+  }
+  .recent-patients {
+    display: block;
+  }
+  .dashboard-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 800px) {
+  .header-search {
+    width: 180px;
+  }
+  .login-intro {
+    padding: 32px;
+  }
+  .login-intro h1 {
+    font-size: 38px;
+  }
+  .login-art {
+    right: -230px;
+  }
+  .login-intro .eyebrow {
+    line-height: 1.8;
+  }
+  .login-lines {
+    gap: 12px;
+  }
+}
+@media (max-width: 650px) {
+  .sidebar,
+  .sidebar-collapsed .sidebar {
+    position: relative;
+    width: 100%;
+    padding: 15px 20px;
+    min-height: 77px;
+    flex-direction: row;
+  }
+  .sidebar .brand > .kinua-logo {
+    width: 135px !important;
+  }
+  .sidebar-collapsed .sidebar .brand > .kinua-logo {
+    width: 38px !important;
+  }
+  .sidebar-collapse {
+    display: none;
+  }
+  .sidebar nav,
+  .sidebar-collapsed .sidebar nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    flex-direction: row;
+    justify-content: space-around;
+    background: var(--sidebar);
+    padding: 7px 3px max(7px, env(safe-area-inset-bottom));
+    margin: 0;
+    border-top: 1px solid var(--sidebar-line);
+    z-index: var(--z-navigation);
+  }
+  .sidebar nav button,
+  .sidebar-collapsed .sidebar nav button {
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 4px;
+    min-width: 45px;
+    font-size: 9px;
+    min-height: 50px;
+  }
+  .sidebar nav .nav-label,
+  .sidebar-collapsed .sidebar nav .nav-label {
+    display: inline;
+  }
+  .sidebar nav button.active {
+    box-shadow: inset 0 2px var(--brand-teal);
+  }
+  .sidebar-bottom,
+  .sidebar-collapsed .sidebar-bottom {
+    display: flex;
+    align-items: center;
+    width: auto;
+    margin: 0;
+    gap: 8px;
+  }
+  .sidebar-bottom .clinical-note,
+  .sidebar-bottom .user-block > div,
+  .sidebar-bottom .user-block > .avatar,
+  .sidebar-bottom .theme-toggle .nav-label {
+    display: none;
+  }
+  .sidebar-bottom .user-block {
+    padding: 0;
+    border: none;
+  }
+  .sidebar-bottom .theme-toggle {
+    padding: 8px;
+  }
+  .main-shell,
+  .sidebar-collapsed .main-shell {
+    margin-left: 0;
+  }
+  .content {
+    padding: 25px 16px 100px;
+  }
+  .topbar {
+    height: auto;
+    min-height: 60px;
+    padding: 12px 16px;
+    gap: 8px;
+  }
+  .topbar > span {
+    font-size: 11px;
+  }
+  .breadcrumb {
+    margin-left: 3px;
+  }
+  .header-tools {
+    gap: 8px;
+  }
+  .header-search {
+    width: 155px;
+  }
+  .header-profile {
+    display: none;
+  }
+  .stat-card {
+    padding: 16px;
+  }
+  .stat-card > div {
+    font-size: 11px;
+  }
+  .metric-icon {
+    padding: 6px;
+    border-radius: 8px;
+  }
+  .metric-icon svg {
+    width: 16px;
+  }
+  .metric-caption {
+    font-size: 9px;
+  }
+  .login-intro {
+    min-height: 0;
+    padding: 22px 28px;
+  }
+  .login-intro > .kinua-logo {
+    width: 155px !important;
+  }
+  .login-intro .kinua-tagline,
+  .login-message,
+  .login-art {
+    display: none;
+  }
+  .login-form {
+    min-height: calc(100svh - 101px);
+    padding: 32px 26px;
+  }
+  .login-form h2 {
+    font-size: 27px;
+  }
+  .login-form .eyebrow {
+    margin-bottom: 18px;
+  }
+  .workflow-banner > .movement-art {
+    opacity: 0.14;
+  }
+}
