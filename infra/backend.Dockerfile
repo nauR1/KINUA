@@ -9,4 +9,4 @@ USER appuser
 ENV POSE_MODEL_PATH=/app/models/pose_landmarker_lite.task
 RUN python -m app.vision.provider
 EXPOSE 8000
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-access-log"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
