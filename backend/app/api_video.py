@@ -12,7 +12,7 @@ from .repositories import assessment_for, audit
 from .rom import allowed_views
 from .schemas import VideoJobInput
 from .services.serialization import row
-from .storage import get_storage, storage_operation
+from .storage import get_storage, media_prefix, storage_operation
 from .vision.video import validate_upload
 
 router = APIRouter()
@@ -53,7 +53,9 @@ def upload_video(
     if len(data) > settings().max_video_bytes:
         raise HTTPException(413, "Limite de 100 MB.")
     storage = get_storage()
-    key, sha = storage.put(data, extension)
+    key, sha = storage.put(
+        data, extension, prefix=media_prefix(db.get(m.Clinic, user.clinic_id))
+    )
     try:
         metadata = validate_upload(storage.path(key))
         media = m.AssessmentMedia(

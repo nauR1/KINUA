@@ -371,7 +371,14 @@ def make_pdf(snapshot: dict, db) -> bytes:
         p(a["conclusion"] or "Não preenchida. Relatório sem conclusão profissional."),
     ]
 
+    if snapshot.get("is_demo"):
+        flow.insert(0, p("DEMONSTRAÇÃO — DADOS FICTÍCIOS", "Heading2"))
+
     def footer(canvas, document):
+        if snapshot.get("is_demo"):
+            canvas.setFont("Manrope", 9)
+            canvas.setFillColor(colors.HexColor(TEAL))
+            canvas.drawString(1.8 * cm, 1.4 * cm, "DEMONSTRAÇÃO — DADOS FICTÍCIOS")
         canvas.setFont("Manrope", 8)
         canvas.setFillColor(colors.HexColor(NAVY))
         canvas.drawString(

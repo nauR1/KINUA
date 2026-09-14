@@ -43,7 +43,7 @@ from .repositories import assessment_for, audit, patient_for
 from .services.analysis import analyze
 from .services.comparison import compare
 from .services.serialization import assessment_result, row
-from .storage import get_storage, normalize_image
+from .storage import get_storage, media_prefix, normalize_image
 
 app = FastAPI(title="KINUA API", version="2.3.0")
 app.include_router(admin_router)
@@ -167,13 +167,14 @@ def login(body: s.Login, response: Response, db: DBSession = Depends(get_db)):
 
 
 @app.get("/auth/me")
-def me(user: m.User = Depends(current_user)):
+def me(user: m.User = Depends(current_user), db: DBSession = Depends(get_db)):
     return {
         "id": user.id,
         "name": user.name,
         "email": user.email,
         "role": user.role,
         "clinic_id": user.clinic_id,
+        "is_demo": db.get(m.Clinic, user.clinic_id).is_demo,
     }
 
 
@@ -422,7 +423,9 @@ async def upload(
         raise HTTPException(413, "Arquivo excede 20 MB.")
     normalized, width, height = normalize_image(data)
     storage = get_storage()
-    key, sha = storage.put(normalized)
+    key, sha = storage.put(
+        normalized, prefix=media_prefix(db.get(m.Clinic, user.clinic_id))
+    )
     try:
         media = m.AssessmentMedia(
             assessment_id=assessment.id,
@@ -518,6 +521,7 @@ def report(
 ):
     assessment = assessment_for(db, assessment_id, user)
     snapshot = {
+        "is_demo": db.get(m.Clinic, user.clinic_id).is_demo,
         "assessment": assessment_result(db, assessment),
         "patient": row(patient_for(db, assessment.patient_id, user)),
         "professional": db.get(m.User, assessment.created_by).name,

@@ -27,6 +27,9 @@ def now() -> datetime:
 
 
 class Clinic(Base):
+    is_demo: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
     __tablename__ = "clinics"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
     name: Mapped[str] = mapped_column(String(160))
@@ -388,3 +391,13 @@ class ROMMeasurement(Base):
     peak_timestamp_ms: Mapped[float] = mapped_column(Float)
     confidence: Mapped[float] = mapped_column(Float)
     details: Mapped[dict] = mapped_column(JSON)
+
+
+class DemoMediaCleanup(Base):
+    """Durable deletion outbox: object deletion occurs only after DB reset commits."""
+
+    __tablename__ = "demo_media_cleanup"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    clinic_id: Mapped[str] = mapped_column(ForeignKey("clinics.id"), index=True)
+    storage_key: Mapped[str] = mapped_column(String(100), unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)

@@ -1494,3 +1494,35 @@ textarea {
     grid-template-columns: 1fr;
   }
 }
+
+.demo-banner {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 1000;
+  background: #0b2d5b;
+  color: #fff;
+  border-bottom: 3px solid #14b8a6;
+  text-align: center;
+  padding: 12px 18px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+.demo-shell {
+  padding-top: 48px;
+}
+.demo-shell aside {
+  top: 48px;
+  height: calc(100vh - 48px);
+}
+@media (max-width: 600px) {
+  .demo-banner {
+    font-size: 10px;
+  }
+  .demo-shell {
+    padding-top: 58px;
+  }
+  .demo-shell aside {
+    top: 58px;
+  }
+}

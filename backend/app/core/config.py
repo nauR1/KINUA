@@ -8,6 +8,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    app_mode: Literal["production", "demo", "development"] = "development"
+    allow_demo_seed: bool = False
     environment: Literal["development", "production"] = "development"
     database_url: str = "sqlite:///./data/app.db"
     storage_backend: Literal["local", "s3"] = "local"

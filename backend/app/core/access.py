@@ -20,8 +20,10 @@ def access_state(user, clinic, now=None):
     if not user.is_active:
         code = "account_disabled"
     if user.role != "platform_admin":
-        plan = clinic.plan_code if clinic else None
-        clinic_expiry = utc(clinic.access_expires_at) if clinic else None
+        plan = ("demo" if clinic.is_demo else clinic.plan_code) if clinic else None
+        clinic_expiry = (
+            utc(clinic.access_expires_at) if clinic and not clinic.is_demo else None
+        )
         expiry = min([d for d in [expiry, clinic_expiry] if d], default=None)
         if not code:
             if user.access_expires_at and now >= utc(user.access_expires_at):
@@ -29,9 +31,11 @@ def access_state(user, clinic, now=None):
             elif (
                 not clinic
                 or not clinic.is_active
-                or clinic.subscription_status == "suspended"
+                or (not clinic.is_demo and clinic.subscription_status == "suspended")
             ):
                 code = "clinic_suspended"
+            elif clinic.is_demo:
+                expiry = utc(user.access_expires_at)
             elif clinic.subscription_status == "cancelled":
                 code = "subscription_cancelled"
             elif clinic.subscription_status == "expired" or (
@@ -44,6 +48,7 @@ def access_state(user, clinic, now=None):
         expiry = None
     return {
         "allowed": code is None,
+        "is_demo": bool(clinic and clinic.is_demo),
         "code": code,
         "plan": plan,
         "expires_at": expiry.isoformat() if expiry else None,

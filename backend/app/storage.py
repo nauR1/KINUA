@@ -18,7 +18,9 @@ Image.MAX_IMAGE_PIXELS = 20_000_000
 
 
 class StorageProvider(Protocol):
-    def put(self, data: bytes, extension: str = ".jpg") -> tuple[str, str]: ...
+    def put(
+        self, data: bytes, extension: str = ".jpg", prefix: str = "production/"
+    ) -> tuple[str, str]: ...
     def path(self, key: str) -> Path: ...
     def verified_path(
         self, key: str, expected_hash: str, expected_size: int
@@ -37,15 +39,24 @@ class LocalStorageProvider:
 
     def path(self, key: str) -> Path:
         target = (self.root / key).resolve()
-        if target.parent != self.root:
+        if "/" in key:
+            validate_storage_key(key)
+        if not target.is_relative_to(self.root) or (
+            "/" not in key and target.parent != self.root
+        ):
             raise ValueError("Chave de armazenamento inválida")
         return target
 
-    def put(self, data: bytes, extension: str = ".jpg") -> tuple[str, str]:
+    def put(
+        self, data: bytes, extension: str = ".jpg", prefix: str = "production/"
+    ) -> tuple[str, str]:
         if extension not in (".jpg", ".mp4", ".webm"):
             raise ValueError("Extensão inválida")
-        key = str(uuid.uuid4()) + extension
-        with self.path(key).open("xb") as stream:
+        validate_prefix(prefix)
+        key = prefix + str(uuid.uuid4()) + extension
+        target = self.path(key)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with target.open("xb") as stream:
             stream.write(data)
         return key, hashlib.sha256(data).hexdigest()
 
@@ -141,18 +152,18 @@ class S3StorageProvider(LocalStorageProvider):
         self.temp = None
 
     def validate_key(self, key):
-        if not re.fullmatch(r"[a-zA-Z0-9_-]+\.(jpg|mp4|webm)", key):
-            raise ValueError("Chave de armazenamento inválida")
+        validate_storage_key(key)
 
     def close(self):
         if self.temp:
             self.temp.cleanup()
             self.temp = None
 
-    def put(self, data, extension=".jpg"):
+    def put(self, data, extension=".jpg", prefix="production/"):
         if extension not in (".jpg", ".mp4", ".webm"):
             raise ValueError("Extensão inválida")
-        key = str(uuid.uuid4()) + extension
+        validate_prefix(prefix)
+        key = prefix + str(uuid.uuid4()) + extension
         try:
             self.client.put_object(Bucket=self.bucket, Key=key, Body=data)
         except (BotoCoreError, ClientError):
@@ -168,6 +179,7 @@ class S3StorageProvider(LocalStorageProvider):
             self.temp = TemporaryDirectory(prefix="kinua-private-")
             self.root = Path(self.temp.name)
         target = self.root / key
+        target.parent.mkdir(parents=True, exist_ok=True)
         try:
             response = self.client.get_object(Bucket=self.bucket, Key=key)
         except ClientError as exc:
@@ -236,3 +248,20 @@ def storage_operation(function):
             storage.close()
 
     return wrapped
+
+
+def validate_prefix(prefix: str):
+    if prefix != "production/" and not re.fullmatch(r"demo/[a-zA-Z0-9_-]+/", prefix):
+        raise ValueError("Prefixo de armazenamento inválido.")
+
+
+def validate_storage_key(key: str):
+    if not re.fullmatch(
+        r"(?:(?:production/)|(?:demo/[a-zA-Z0-9_-]+/))?[a-zA-Z0-9_-]+\.(jpg|mp4|webm)",
+        key,
+    ):
+        raise ValueError("Chave de armazenamento inválida.")
+
+
+def media_prefix(clinic):
+    return "demo/" + clinic.id + "/" if clinic.is_demo else "production/"

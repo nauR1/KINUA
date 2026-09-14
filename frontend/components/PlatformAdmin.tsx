@@ -9,6 +9,7 @@ type Access = {
   days_remaining: number | null;
 };
 type Clinic = {
+  is_demo: boolean;
   id: string;
   name: string;
   is_active: boolean;
@@ -363,6 +364,7 @@ export default function PlatformAdmin({
     >([]),
     [selected, setSelected] = useState<Clinic | null>(null),
     [q, setQ] = useState(""),
+    [tenantMode, setTenantMode] = useState("all"),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState("");
@@ -425,7 +427,9 @@ export default function PlatformAdmin({
     }
   }
   const labels: Record<string, string> = {
-    clinics: "Clínicas",
+    clinics: "Todas as clínicas",
+    production_clinics: "Clínicas de produção",
+    demo_clinics: "Clínicas de demonstração",
     active_clinics: "Clínicas ativas",
     expired_subscriptions: "Assinaturas expiradas",
     expiring_7: "Vencem em 7 dias",
@@ -493,6 +497,18 @@ export default function PlatformAdmin({
           <section className="panel">
             <h2>Clínicas</h2>
             <label>
+              Tipo de ambiente
+              <select
+                aria-label="Tipo de ambiente"
+                value={tenantMode}
+                onChange={(e) => setTenantMode(e.target.value)}
+              >
+                <option value="all">Todas</option>
+                <option value="production">Produção</option>
+                <option value="demo">Demonstração</option>
+              </select>
+            </label>
+            <label>
               Buscar clínica
               <input value={q} onChange={(e) => setQ(e.target.value)} />
             </label>
@@ -509,13 +525,25 @@ export default function PlatformAdmin({
                 </thead>
                 <tbody>
                   {clinics
-                    .filter((c) =>
-                      c.name.toLowerCase().includes(q.toLowerCase()),
+                    .filter(
+                      (c) =>
+                        c.name.toLowerCase().includes(q.toLowerCase()) &&
+                        (tenantMode === "all" ||
+                          c.is_demo === (tenantMode === "demo")),
                     )
                     .map((c) => (
                       <tr key={c.id}>
-                        <td>{c.name}</td>
-                        <td>{planLabels[c.plan_code] || c.plan_code}</td>
+                        <td>
+                          {c.name}{" "}
+                          {c.is_demo && (
+                            <span className="access-badge">DEMO</span>
+                          )}
+                        </td>
+                        <td>
+                          {c.is_demo
+                            ? "Demonstração"
+                            : planLabels[c.plan_code] || c.plan_code}
+                        </td>
                         <td>
                           <AccessBadge
                             access={c.access}

@@ -19,6 +19,8 @@ services:
       dockerfile: infra/backend.Dockerfile
     environment:
       ENVIRONMENT: ${ENVIRONMENT:-development}
+      APP_MODE: ${APP_MODE:-development}
+      ALLOW_DEMO_SEED: ${ALLOW_DEMO_SEED:-false}
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-biometria}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-biometria}
       STORAGE_DIR: /app/data/media
       STORAGE_BACKEND: ${STORAGE_BACKEND:-local}
@@ -47,6 +49,8 @@ services:
     command: [python, -m, app.jobs]
     environment:
       ENVIRONMENT: ${ENVIRONMENT:-development}
+      APP_MODE: ${APP_MODE:-development}
+      ALLOW_DEMO_SEED: ${ALLOW_DEMO_SEED:-false}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       SECURE_COOKIES: ${SECURE_COOKIES:-false}
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-biometria}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-biometria}

@@ -5,8 +5,10 @@ export default function PatientForm({
   onSaved,
   onCancel,
   patient,
+  isDemo = false,
 }: {
   patient?: Patient | null;
+  isDemo?: boolean;
   onSaved: (p: Patient) => void;
   onCancel: () => void;
 }) {
@@ -14,6 +16,13 @@ export default function PatientForm({
     [busy, setBusy] = useState(false);
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (
+      isDemo &&
+      !window.confirm(
+        "Este é um ambiente de demonstração. Não insira dados reais de pacientes. Confirmar uso de dados fictícios?",
+      )
+    )
+      return;
     setBusy(true);
     setError("");
     const form = new FormData(event.currentTarget);
@@ -47,6 +56,12 @@ export default function PatientForm({
       <div className="section-heading">
         <div>
           <span className="eyebrow">PRONTUÁRIO</span>
+          {isDemo && (
+            <p className="info-box">
+              Este é um ambiente de demonstração. Não insira dados reais de
+              pacientes.
+            </p>
+          )}
           <h2>{patient ? "Editar paciente" : "Novo paciente"}</h2>
         </div>
         <button className="ghost" onClick={onCancel} disabled={busy}>

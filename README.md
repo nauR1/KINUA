@@ -60,7 +60,7 @@ Requisitos: Docker Engine/Desktop com Compose v2, internet na instalação e apr
    docker compose up --build -d
    docker compose exec backend python -m app.seed
    ```
-   O segundo comando cria uma clínica vazia e solicita a senha inicial do administrador (mínimo 12 caracteres). Use `--demo` somente em ambiente separado para inserir pacientes fictícios. E-mail padrão: `admin@biometria.local`; personalize com `--email profissional@exemplo.com`.
+   O segundo comando cria uma clínica vazia e solicita a senha inicial do administrador (mínimo 12 caracteres). O antigo `--demo` foi desativado; demonstração exige o comando explícito descrito em [Ambiente demo](docs/demo-environment.md). E-mail padrão: `admin@biometria.local`; personalize com `--email profissional@exemplo.com`.
 3. Abra **http://localhost:3000** e entre com a senha escolhida.
 
 Migrações executam no startup do backend, após saúde do PostgreSQL. Banco e mídia persistem em volumes separados. `docker compose down` para parar; não use `down -v` se quiser preservar dados. Logs: `docker compose logs backend frontend`.
@@ -173,3 +173,9 @@ Faça backup consistente. Aguarde jobs ativos terminarem, pare API e worker e ex
 Edição de paciente fica no perfil, em Editar paciente. Alterações concorrentes pelo formulário são recusadas por revisão; preserve o texto e reabra antes de reaplicar. Notas e conclusão também usam comparação com o valor originalmente carregado. Protocolos serializam o autosave e preservam a revisão de cada etapa.
 
 Não foram adicionados novos módulos. O ambiente local permanece sem liberação assistencial pela internet, conforme [prontidão clínica](docs/clinical-readiness.md).
+
+## Produção e demonstração — KINUA 2.3.0
+
+KINUA 2.3 — Access, Commercial Administration & Demo Environment.
+
+O bootstrap normal nunca cria pacientes. `Clinic.is_demo` identifica a demonstração, isolada por tenant, com banner permanente, PDFs marcados e exclusão das métricas comerciais. `APP_MODE` não concede acesso. Consulte [criação, reset e armazenamento da demo](docs/demo-environment.md).

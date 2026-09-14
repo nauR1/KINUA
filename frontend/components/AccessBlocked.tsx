@@ -2,6 +2,7 @@
 import KinuaLogo from "./brand/KinuaLogo";
 export type AccessStatus = {
   code: string;
+  is_demo?: boolean;
   plan?: string;
   expires_at?: string | null;
   days_remaining?: number | null;
@@ -18,6 +19,11 @@ export default function AccessBlocked({
   );
   return (
     <main className="access-page">
+      {status.is_demo && (
+        <div className="demo-banner">
+          AMBIENTE DE DEMONSTRAÇÃO — todos os dados apresentados são fictícios.
+        </div>
+      )}
       <section className="panel">
         <KinuaLogo size={190} />
         <span className="eyebrow">ACESSO PROFISSIONAL</span>

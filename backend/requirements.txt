@@ -16,3 +16,5 @@ mediapipe==0.10.35
 opencv-contrib-python==5.0.0.93
 
 boto3==1.43.93
+
+pypdf==6.18.1

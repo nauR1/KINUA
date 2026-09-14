@@ -1,4 +1,4 @@
-"""Criação explícita de administrador e dados fictícios; nunca executada no startup."""
+"""Criação explícita de administrador sem dados demonstrativos; nunca executada no startup."""
 
 import argparse
 import getpass
@@ -9,7 +9,7 @@ from sqlalchemy import select
 from .clinical.engine import RULESET
 from .core.database import SessionLocal
 from .core.security import hasher
-from .models import Clinic, ClinicalRule, Patient, Professional, User
+from .models import Clinic, ClinicalRule, Professional, User
 from .repositories import audit
 
 
@@ -25,8 +25,10 @@ def main():
 
     args = parser.parse_args()
 
-    if args.platform_admin and args.demo:
-        raise SystemExit("Bootstrap global não aceita dados demo.")
+    if args.demo:
+        raise SystemExit(
+            "--demo foi desativado. Use app.demo_seed com ALLOW_DEMO_SEED=true."
+        )
 
     password = os.environ.get("BOOTSTRAP_PASSWORD") or getpass.getpass(
         "Senha inicial (mínimo 12 caracteres): "
@@ -42,9 +44,7 @@ def main():
             return
 
         clinic = Clinic(
-            name="Administração KINUA"
-            if args.platform_admin
-            else ("Clínica Demonstração" if args.demo else "Minha clínica")
+            name="Administração KINUA" if args.platform_admin else "Minha clínica"
         )
 
         db.add(clinic)
@@ -65,24 +65,6 @@ def main():
 
         db.add(Professional(user_id=user.id))
 
-        if args.demo:
-            for name, birth, complaint in [
-                ("Marina Exemplo", "1992-04-18", "Dados fictícios para demonstração"),
-                ("Rafael Exemplo", "1985-11-09", "Dados fictícios para demonstração"),
-            ]:
-                db.add(
-                    Patient(
-                        clinic_id=clinic.id,
-                        name=name,
-                        birth_date=birth,
-                        details={
-                            "complaint": complaint,
-                            "sport": "",
-                            "dominance": "right",
-                        },
-                    )
-                )
-
         for rule in RULESET["rules"]:
             if not db.get(ClinicalRule, rule["id"]):
                 db.add(
@@ -95,9 +77,7 @@ def main():
 
         db.commit()
 
-        print(
-            "Administrador criado. Dados de demonstração são fictícios; nenhuma análise foi simulada."
-        )
+        print("Administrador criado. Nenhum paciente, avaliação ou mídia foi criado.")
 
 
 if __name__ == "__main__":

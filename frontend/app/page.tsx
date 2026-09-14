@@ -37,7 +37,13 @@ import EmptyState from "@/components/ui/EmptyState";
 import ProtocolCatalog from "@/components/ProtocolCatalog";
 import ProtocolWorkspace from "@/components/ProtocolWorkspace";
 import { ROMLauncher, ROMHistory } from "@/components/ROM";
-type User = { id: string; name: string; email: string; role: string };
+type User = {
+  is_demo?: boolean;
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+};
 type Dashboard = {
   patients: number;
   assessments: number;
@@ -253,10 +259,17 @@ export default function Home() {
                   ? "Configurações"
                   : "Avaliações";
   return (
-    <div className={`app-shell ${collapsed ? "sidebar-collapsed" : ""}`}>
+    <div
+      className={`app-shell ${user.is_demo ? "demo-shell" : ""} ${collapsed ? "sidebar-collapsed" : ""}`}
+    >
       <a className="skip-link" href="#main-content">
         Ir para o conteúdo
       </a>
+      {user.is_demo && (
+        <div className="demo-banner" role="status">
+          AMBIENTE DE DEMONSTRAÇÃO — todos os dados apresentados são fictícios.
+        </div>
+      )}
       <aside className="sidebar">
         <a className="brand" href="/" aria-label="KINUA, início">
           <KinuaLogo
@@ -651,6 +664,7 @@ export default function Home() {
             <>
               {adding ? (
                 <PatientForm
+                  isDemo={user.is_demo}
                   patient={patient}
                   onCancel={() => setAdding(false)}
                   onSaved={async (p) => {

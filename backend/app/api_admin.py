@@ -112,6 +112,7 @@ def user_view(u, clinic):
 def clinic_view(c):
 
     fields = [
+        "is_demo",
         "id",
         "name",
         "is_active",
@@ -171,12 +172,17 @@ def check_capacity(db, clinic, exclude=None):
 
 @router.get("/platform/clinics")
 def clinics(
-    q: str = "", actor: m.User = Depends(platform_admin), db: Session = Depends(get_db)
+    q: str = "",
+    mode: Literal["all", "production", "demo"] = "all",
+    actor: m.User = Depends(platform_admin),
+    db: Session = Depends(get_db),
 ):
 
     query = select(m.Clinic).order_by(m.Clinic.name)
     if q:
         query = query.where(m.Clinic.name.ilike("%" + q + "%"))
+    if mode != "all":
+        query = query.where(m.Clinic.is_demo.is_(mode == "demo"))
     return [clinic_view(c) for c in db.scalars(query)]
 
 
@@ -342,6 +348,8 @@ def create_user(
     ):
         raise HTTPException(403, "Permissão ou clínica não autorizada.")
     clinic = lock_clinic(db, body.clinic_id or actor.clinic_id)
+    if clinic.is_demo and body.role == "platform_admin":
+        raise HTTPException(403, "Administrador global não pertence à demonstração.")
     check_capacity(db, clinic)
     if db.scalar(select(m.User.id).where(m.User.email == body.email.lower())):
         raise HTTPException(409, "Não foi possível cadastrar este e-mail.")
@@ -402,6 +410,8 @@ def update_user(
                 409, "Não é permitido remover o último platform_admin ativo."
             )
     clinic = lock_clinic(db, u.clinic_id)
+    if clinic.is_demo and body.role == "platform_admin":
+        raise HTTPException(403, "Administrador global não pertence à demonstração.")
     if body.is_active is True and not u.is_active:
         check_capacity(db, clinic, u.id)
     old_active = u.is_active
@@ -439,14 +449,21 @@ def update_user(
 def dashboard(actor: m.User = Depends(platform_admin), db: Session = Depends(get_db)):
 
     cs = [clinic_view(c) for c in db.scalars(select(m.Clinic))]
+    all_clinics = cs
+    cs = [c for c in all_clinics if not c["is_demo"]]
     us = [
         user_view(u, c)
         for u, c in db.execute(
-            select(m.User, m.Clinic).join(m.Clinic, m.User.clinic_id == m.Clinic.id)
+            select(m.User, m.Clinic)
+            .join(m.Clinic, m.User.clinic_id == m.Clinic.id)
+            .where(m.Clinic.is_demo.is_(False))
         )
     ]
     return {
-        "clinics": len(cs),
+        "clinics": len(all_clinics),
+        "total_clinics": len(all_clinics),
+        "production_clinics": len(cs),
+        "demo_clinics": len(all_clinics) - len(cs),
         "active_clinics": sum(c["access"]["allowed"] for c in cs),
         "expired_subscriptions": sum(
             c["access"]["code"] == "subscription_expired" for c in cs
