@@ -10,9 +10,11 @@ from sqlalchemy import delete, select
 
 from . import models as m
 from .api_admin import UserCreate
+from .core.access import access_state, utc
 from .core.config import settings
 from .core.database import Base, SessionLocal
-from .core.security import digest, hasher
+from .core.security import digest, hasher, verify_password
+from .schemas import Login
 from .storage import get_storage, validate_storage_key
 
 # Ownership edges, deliberately excluding actors and globally shared catalogs.
@@ -178,6 +180,12 @@ def seed_demo(factory, email, password, reset=False):
             if reset:
                 reset_rows(db, clinic)
             else:
+                if not verify_password(existing.password_hash, body.password):
+                    raise ValueError(
+                        "Conta demo existente: a senha informada não corresponde à senha salva. "
+                        "Nenhuma credencial foi alterada. Use --verify-only para diagnóstico; "
+                        "--reset substitui os dados da clínica demo e sua senha"
+                    )
                 clinic = None
         else:
             clinic = m.Clinic(
@@ -205,6 +213,11 @@ def seed_demo(factory, email, password, reset=False):
             )
             db.add(user)
             db.flush()
+            db.refresh(user, attribute_names=["password_hash"])
+            if not verify_password(user.password_hash, body.password):
+                raise RuntimeError(
+                    "Falha ao conferir credencial persistida; transação cancelada"
+                )
             db.add(m.Professional(user_id=user.id, registration="DEMONSTRAÇÃO"))
             patients = []
             for name, birth in [
@@ -258,22 +271,80 @@ def seed_demo(factory, email, password, reset=False):
     return clinic_id
 
 
+def verify_demo_credentials(factory, email, password):
+    """Read-only diagnostic, using the exact login input normalization/policy."""
+    body = Login(email=email, password=password)
+    canonical_email = body.email.lower()
+    with factory() as db:
+        user = db.scalar(select(m.User).where(m.User.email == canonical_email))
+        if not user:
+            return {"status": "user_not_found", "password_matches": False}
+        clinic = db.get(m.Clinic, user.clinic_id)
+        if not clinic or not clinic.is_demo or user.role == "platform_admin":
+            return {"status": "not_demo", "password_matches": None}
+        attempt = db.get(m.LoginAttempt, digest(canonical_email))
+        locked = bool(
+            attempt
+            and attempt.count >= 5
+            and utc(attempt.window_start) >= m.now() - timedelta(minutes=15)
+        )
+        matches = verify_password(user.password_hash, body.password)
+        access = access_state(user, clinic)
+        return {
+            "status": "locked"
+            if locked
+            else (
+                "password_mismatch"
+                if not matches
+                else (access["code"] if not access["allowed"] else "credentials_valid")
+            ),
+            "password_matches": matches,
+            "lockout_active": locked,
+            "access_allowed": access["allowed"],
+            "access_code": access["code"],
+        }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--email", required=True)
-    parser.add_argument("--reset", action="store_true")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--reset", action="store_true")
+    mode.add_argument(
+        "--verify-only",
+        action="store_true",
+        help="Confere credenciais e bloqueio sem alterar dados ou tentativas.",
+    )
     args = parser.parse_args()
-    if not settings().allow_demo_seed:
+    if not args.verify_only and not settings().allow_demo_seed:
         raise SystemExit("Demo seed desabilitado. Exige ALLOW_DEMO_SEED=true.")
-    password = os.environ.get("DEMO_PASSWORD") or getpass.getpass(
-        "Senha da demo (12–128 caracteres): "
+    password = (
+        os.environ["DEMO_PASSWORD"]
+        if "DEMO_PASSWORD" in os.environ
+        else getpass.getpass("Senha da demo (12–128 caracteres): ")
     )
     try:
+        if args.verify_only:
+            import json
+
+            result = verify_demo_credentials(SessionLocal, args.email, password)
+            result["password_source"] = (
+                "DEMO_PASSWORD" if "DEMO_PASSWORD" in os.environ else "prompt"
+            )
+            result["database_backend"] = settings().database_url.split(":", 1)[0]
+            result["railway_service_id"] = os.environ.get("RAILWAY_SERVICE_ID")
+            result["railway_environment_id"] = os.environ.get("RAILWAY_ENVIRONMENT_ID")
+            print(json.dumps(result, ensure_ascii=False))
+            if result["status"] != "credentials_valid":
+                raise SystemExit(1)
+            return
         seed_demo(SessionLocal, args.email, password, args.reset)
     except ValidationError:
         raise SystemExit(
             "Dados inválidos. Verifique e-mail e senha de 12–128 caracteres; valores omitidos por segurança."
         ) from None
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from None
     except Exception as exc:
         # External storage can fail after DB commit. Queue remains safe to retry.
         raise SystemExit(
@@ -282,7 +353,7 @@ def main():
             + ". Reexecute sem --reset para retomar eventual limpeza pendente."
         ) from None
     print(
-        "Demonstração preparada. Use somente dados fictícios. Nenhuma senha foi exibida."
+        "Demonstração preparada; credencial conferida no banco selecionado. Use somente dados fictícios. Nenhuma senha foi exibida."
     )
 
 

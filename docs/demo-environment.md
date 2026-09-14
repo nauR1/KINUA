@@ -17,7 +17,7 @@ $env:ALLOW_DEMO_SEED = 'true'
 python -m app.demo_seed --email demo@kinua.app
 ```
 
-A senha é solicitada sem eco (12–128 caracteres). Alternativamente, defina `DEMO_PASSWORD` por um gerenciador de segredos ou variável temporária; nunca a grave no repositório. Sem reset, reexecutar o comando preserva dados e senha existentes e tenta concluir eventuais exclusões de mídia pendentes.
+A senha é solicitada sem eco (12–128 caracteres). Alternativamente, defina `DEMO_PASSWORD` por um gerenciador de segredos ou variável temporária; nunca a grave no repositório. Sem reset, reexecutar o comando preserva dados e senha existentes e tenta concluir eventuais exclusões de mídia pendentes. Se a senha fornecida não conferir com a conta existente, o comando agora aborta explicitamente; não informa sucesso nem troca a credencial.
 
 Reset explícito, usando o mesmo e-mail:
 
@@ -60,3 +60,21 @@ Uma instalação demo independente deve receber migrations, catálogos técnicos
 
 
 Para reproduzir o E2E, configure externamente: E2E_BASE_URL (frontend QA com proxy /api), E2E_ISOLATED=1, E2E_EMAIL e E2E_PASSWORD para o administrador clínico de QA; um platform_admin `platform@kinua.local` com a mesma senha temporária do laboratório; E2E_DEMO_DATABASE, E2E_DEMO_STORAGE, E2E_PYTHON e E2E_BACKEND apontando exclusivamente para QA. A demo criada pelo teste usa demo@qa.local. Execute `npx playwright test e2e/demo.spec.ts` no frontend. Para a suíte de câmera/vídeo, acrescente E2E_CAMERA_FILE e E2E_IMAGE apontando para fixtures autorizadas. Esses dados de laboratório não devem ser reutilizados em instalação pública.
+
+
+## Diagnóstico de autenticação sem reset
+
+No shell do **mesmo serviço backend e ambiente que atende o frontend**, execute:
+
+```sh
+python -m app.demo_seed --email demo@kinua.app --verify-only
+python -m app.demo_seed --email demo2026@kinua.app --verify-only
+```
+
+O comando lê DEMO_PASSWORD do ambiente desse processo; se ausente, solicita por prompt oculto. Variável definida vazia é erro, não ativa fallback. Não imprime senha, hash ou DATABASE_URL. Não requer ALLOW_DEMO_SEED, pois faz apenas SELECT; não altera usuários, dados ou tentativas. O resultado inclui a origem da senha, tipo de banco e IDs Railway quando presentes, para identificar execução no serviço/ambiente errado. Não publica um endpoint de diagnóstico.
+
+Resultados: `user_not_found` (conta ausente no banco selecionado), `not_demo` (recusa analisar senha de conta comum/global), `password_mismatch` (senha desse processo não confere), `locked` (cinco falhas na janela de 15 minutos), `credentials_valid` (credencial e acesso conferem), ou código de restrição de acesso. Saída 0 somente para credentials_valid. O teste de senha usa a mesma normalização de entrada do endpoint Login. A verificação não faz POST nem cria sessão, portanto não prova sozinha que o frontend aponta para esse backend.
+
+No POST /auth/login: usuário ausente/senha divergente retorna 401, lockout retorna 429, restrição comercial/individual retorna 403. `/auth/me` pode retornar 401 por sessão expirada mesmo após credencial correta; não confundir esses endpoints.
+
+Não repita reset para diagnosticar 401. Primeiro confirme o resultado acima, o comando utilizado, o banco/serviço do shell e o BACKEND_URL compilado no frontend. Alterar a variável DEMO_PASSWORD ou redeployar o backend não altera automaticamente o hash do banco. O seed normal também não gira senhas existentes. O reset explícito recria somente a demo com a nova senha fornecida, confere o hash persistido antes do commit e remove bloqueios apenas das contas daquele tenant. Argon2 usa salt aleatório: o texto do hash varia, mas a nova senha deve verificar e a antiga falhar.
