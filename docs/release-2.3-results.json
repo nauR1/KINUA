@@ -1,0 +1,51 @@
+{
+  "version": "2.3.0",
+  "date": "2026-09-14",
+  "tests": {
+    "sqlite": {
+      "tests": 178,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "postgresql": {
+      "tests": 178,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "frontend": {
+      "tests": 6,
+      "failures": 0,
+      "skipped": 0
+    },
+    "e2e": {
+      "tests": 12,
+      "failures": 0,
+      "skipped": 0
+    }
+  },
+  "checks": {
+    "production_build": "PASS",
+    "typescript": "PASS",
+    "ruff": "PASS",
+    "prettier": "PASS",
+    "pip_check": "PASS",
+    "postgresql_upgrade_check_downgrade_upgrade_check": "PASS",
+    "sqlite_populated_migration": "PASS",
+    "local_migration": "PASS",
+    "admin_browser_flow": "PASS",
+    "s3_fake_upload_worker_pdf": "PASS",
+    "local_role_smoke": "PASS"
+  },
+  "not_validated": [
+    "Railway deployment",
+    "Real S3 bucket",
+    "Docker execution",
+    "Clinical validation",
+    "Regulatory approval",
+    "External penetration test",
+    "Production load",
+    "Physical camera device matrix"
+  ]
+}

@@ -16,9 +16,10 @@ from ..models import (
 )
 from ..repositories import assessment_for, audit
 from ..schemas import AnalyzeInput
-from ..storage import LocalStorageProvider, brightness
+from ..storage import brightness, get_storage, storage_operation
 
 
+@storage_operation
 def analyze(
     db: Session, assessment_id: str, body: AnalyzeInput, user: User
 ) -> Analysis:
@@ -60,9 +61,7 @@ def analyze(
         body.camera_level_confirmed,
         body.view_confirmed,
         brightness(
-            LocalStorageProvider().verified_path(
-                media.storage_key, media.sha256, media.size
-            )
+            get_storage().verified_path(media.storage_key, media.sha256, media.size)
         ),
     )
     analysis = Analysis(

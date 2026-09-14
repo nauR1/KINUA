@@ -3,7 +3,8 @@ WORKDIR /app
 COPY frontend/package*.json ./
 RUN npm ci
 COPY frontend ./
-ENV BACKEND_URL=http://backend:8000
+ARG BACKEND_URL=http://backend:8000
+ENV BACKEND_URL=${BACKEND_URL}
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run prepare:vision && npm run build
 FROM node:22-bookworm-slim

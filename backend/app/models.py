@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     DateTime,
     Float,
     ForeignKey,
@@ -10,6 +11,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -29,6 +31,37 @@ class Clinic(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
     name: Mapped[str] = mapped_column(String(160))
 
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="true"
+    )
+    access_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    suspended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    suspension_reason: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=now,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=now,
+        onupdate=now,
+        server_default=func.now(),
+    )
+    plan_code: Mapped[str] = mapped_column(
+        String(20), default="custom", server_default="custom"
+    )
+    subscription_status: Mapped[str] = mapped_column(
+        String(20), default="active", server_default="active"
+    )
+    access_starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    max_users: Mapped[int | None] = mapped_column(Integer)
+    provider: Mapped[str | None] = mapped_column(String(40))
+    external_subscription_id: Mapped[str | None] = mapped_column(String(200))
+    external_customer_id: Mapped[str | None] = mapped_column(String(200))
+    period_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
 
 class User(Base):
     __tablename__ = "users"
@@ -38,6 +71,25 @@ class User(Base):
     name: Mapped[str] = mapped_column(String(160))
     password_hash: Mapped[str] = mapped_column(Text)
     role: Mapped[str] = mapped_column(String(20), default="physiotherapist")
+
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="true"
+    )
+    access_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    suspended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    suspension_reason: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=now,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=now,
+        onupdate=now,
+        server_default=func.now(),
+    )
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Professional(Base):
@@ -224,6 +276,7 @@ class Report(Base):
 
 
 class AuditLog(Base):
+    changes: Mapped[dict | None] = mapped_column(JSON)
     __tablename__ = "audit_logs"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
     clinic_id: Mapped[str] = mapped_column(ForeignKey("clinics.id"), index=True)

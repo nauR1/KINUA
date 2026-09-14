@@ -18,12 +18,15 @@ from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as DBSession
+from starlette.background import BackgroundTask
 
 from . import models as m
 from . import schemas as s
+from .api_admin import router as admin_router
 from .api_protocols import router as protocol_router
 from .api_video import router as video_router
 from .clinical.engine import RULESET
+from .core.access import enforce_access
 from .core.body_limit import BodyLimitMiddleware
 from .core.config import settings
 from .core.database import get_db
@@ -32,7 +35,6 @@ from .core.security import (
     admin,
     current_user,
     digest,
-    hasher,
     utc,
     verify_password,
 )
@@ -41,9 +43,10 @@ from .repositories import assessment_for, audit, patient_for
 from .services.analysis import analyze
 from .services.comparison import compare
 from .services.serialization import assessment_result, row
-from .storage import LocalStorageProvider, normalize_image
+from .storage import get_storage, normalize_image
 
-app = FastAPI(title="KINUA API", version="2.2.1")
+app = FastAPI(title="KINUA API", version="2.3.0")
+app.include_router(admin_router)
 app.include_router(video_router)
 app.include_router(protocol_router)
 
@@ -137,6 +140,8 @@ def login(body: s.Login, response: Response, db: DBSession = Depends(get_db)):
         attempt.count += 1
         db.commit()
         raise HTTPException(401, "E-mail ou senha inválidos.")
+    enforce_access(user, db.get(m.Clinic, user.clinic_id))
+    user.last_login_at = m.now()
     if attempt:
         db.delete(attempt)
     token = secrets.token_urlsafe(48)
@@ -416,7 +421,7 @@ async def upload(
     if len(data) > settings().max_upload_bytes:
         raise HTTPException(413, "Arquivo excede 20 MB.")
     normalized, width, height = normalize_image(data)
-    storage = LocalStorageProvider()
+    storage = get_storage()
     key, sha = storage.put(normalized)
     try:
         media = m.AssessmentMedia(
@@ -451,13 +456,19 @@ def media_file(
     if not media:
         raise HTTPException(404, "Mídia não encontrada.")
     assessment_for(db, media.assessment_id, user)
-    path = LocalStorageProvider().verified_path(
-        media.storage_key, media.sha256, media.size
-    )
+    storage = get_storage()
+    try:
+        path = storage.verified_path(media.storage_key, media.sha256, media.size)
+    except Exception:
+        storage.close()
+        raise
     if not path.is_file():
         raise HTTPException(404, "Arquivo indisponível no armazenamento.")
     return FileResponse(
-        path, media_type=media.mime, headers={"Content-Disposition": "inline"}
+        path,
+        media_type=media.mime,
+        headers={"Content-Disposition": "inline"},
+        background=BackgroundTask(storage.close),
     )
 
 
@@ -570,37 +581,11 @@ def audit_log(user: m.User = Depends(admin), db: DBSession = Depends(get_db)):
         row(x)
         for x in db.scalars(
             select(m.AuditLog)
-            .where(m.AuditLog.clinic_id == user.clinic_id)
+            .where(
+                m.AuditLog.clinic_id == user.clinic_id,
+                ~m.AuditLog.action.like("platform.%"),
+            )
             .order_by(m.AuditLog.created_at.desc())
             .limit(200)
         )
     ]
-
-
-@app.get("/admin/users")
-def users(user: m.User = Depends(admin), db: DBSession = Depends(get_db)):
-    return [
-        {"id": u.id, "name": u.name, "email": u.email, "role": u.role}
-        for u in db.scalars(select(m.User).where(m.User.clinic_id == user.clinic_id))
-    ]
-
-
-@app.post("/admin/users", status_code=201)
-def create_user(
-    body: s.UserInput, user: m.User = Depends(admin), db: DBSession = Depends(get_db)
-):
-    if db.scalar(select(m.User).where(m.User.email == body.email.lower())):
-        raise HTTPException(409, "Não foi possível cadastrar este e-mail.")
-    new = m.User(
-        clinic_id=user.clinic_id,
-        name=body.name,
-        email=body.email.lower(),
-        role=body.role,
-        password_hash=hasher.hash(body.password),
-    )
-    db.add(new)
-    db.flush()
-    db.add(m.Professional(user_id=new.id))
-    audit(db, user, "user.created", new.id)
-    db.commit()
-    return {"id": new.id, "name": new.name, "role": new.role}

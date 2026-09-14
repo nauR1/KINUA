@@ -1,4 +1,14 @@
-# KINUA
+# KINUA 2.3 — Access & Commercial Administration
+
+Esta versão acrescenta administração global, assinaturas/expiração, controle individual de acesso e storage S3 privado. Os módulos e algoritmos clínicos da 2.2.1 foram preservados.
+
+- [Controle de acesso e bootstrap](docs/access-control.md)
+- [Implantação Railway, storage e backup](docs/deployment.md)
+- [Relatório da entrega 2.3](docs/release-2.3.md)
+
+Atualização: faça backup, pare workers antigos, execute `python -m alembic upgrade head` e `python -m alembic check` no backend e recompile o frontend. Migration atual: `7c301a230000`. Clínicas e usuários existentes permanecem ativos, sem expiração. O primeiro administrador global exige bootstrap explícito; nenhum admin atual é promovido automaticamente.
+
+## Histórico e instalação — KINUA
 
 Inteligência em movimento humano. A versão 2.2.1 estabiliza o núcleo existente: autenticação, pacientes, foto/câmera/vídeo, Protocolos e ROM. Consulte o [relatório de auditoria](docs/audit-2.2.1.md) para correções, testes e limites. A identidade KINUA usa SVGs nativos e Manrope local.
 

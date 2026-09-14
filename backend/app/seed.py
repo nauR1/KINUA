@@ -14,32 +14,57 @@ from .repositories import audit
 
 
 def main():
+
     parser = argparse.ArgumentParser()
+
     parser.add_argument("--demo", action="store_true")
+
     parser.add_argument("--email", default="admin@biometria.local")
+
+    parser.add_argument("--platform-admin", action="store_true")
+
     args = parser.parse_args()
+
+    if args.platform_admin and args.demo:
+        raise SystemExit("Bootstrap global não aceita dados demo.")
+
     password = os.environ.get("BOOTSTRAP_PASSWORD") or getpass.getpass(
         "Senha inicial (mínimo 12 caracteres): "
     )
+
     if len(password) < 12:
         raise SystemExit("Use no mínimo 12 caracteres.")
+
     with SessionLocal() as db:
         if db.scalar(select(User).where(User.email == args.email.lower())):
             print("Usuário já existe. Nenhuma senha foi alterada.")
+
             return
-        clinic = Clinic(name="Clínica Demonstração" if args.demo else "Minha clínica")
+
+        clinic = Clinic(
+            name="Administração KINUA"
+            if args.platform_admin
+            else ("Clínica Demonstração" if args.demo else "Minha clínica")
+        )
+
         db.add(clinic)
+
         db.flush()
+
         user = User(
             clinic_id=clinic.id,
             email=args.email.lower(),
             name="Administrador",
-            role="admin",
+            role="platform_admin" if args.platform_admin else "admin",
             password_hash=hasher.hash(password),
         )
+
         db.add(user)
+
         db.flush()
+
         db.add(Professional(user_id=user.id))
+
         if args.demo:
             for name, birth, complaint in [
                 ("Marina Exemplo", "1992-04-18", "Dados fictícios para demonstração"),
@@ -57,6 +82,7 @@ def main():
                         },
                     )
                 )
+
         for rule in RULESET["rules"]:
             if not db.get(ClinicalRule, rule["id"]):
                 db.add(
@@ -64,8 +90,11 @@ def main():
                         id=rule["id"], version=RULESET["version"], definition=rule
                     )
                 )
+
         audit(db, user, "bootstrap.created", clinic.id)
+
         db.commit()
+
         print(
             "Administrador criado. Dados de demonstração são fictícios; nenhuma análise foi simulada."
         )

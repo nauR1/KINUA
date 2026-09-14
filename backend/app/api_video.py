@@ -12,13 +12,14 @@ from .repositories import assessment_for, audit
 from .rom import allowed_views
 from .schemas import VideoJobInput
 from .services.serialization import row
-from .storage import LocalStorageProvider
+from .storage import get_storage, storage_operation
 from .vision.video import validate_upload
 
 router = APIRouter()
 
 
 @router.post("/assessments/{assessment_id}/videos", status_code=201)
+@storage_operation
 def upload_video(
     assessment_id: str,
     file: UploadFile = File(...),
@@ -51,7 +52,7 @@ def upload_video(
     file.file.close()
     if len(data) > settings().max_video_bytes:
         raise HTTPException(413, "Limite de 100 MB.")
-    storage = LocalStorageProvider()
+    storage = get_storage()
     key, sha = storage.put(data, extension)
     try:
         metadata = validate_upload(storage.path(key))

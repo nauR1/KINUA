@@ -15,7 +15,7 @@ from reportlab.platypus import (
 
 from .models import AssessmentMedia
 from .report_brand import GRAY, MINT, NAVY, TEAL, apply_typography, brand_header, label
-from .storage import LocalStorageProvider
+from .storage import get_storage, storage_operation
 
 
 def frame_image(path, media, frame):
@@ -123,6 +123,7 @@ def motion_chart(analysis):
 NOTICE = "Os resultados automatizados apresentados constituem ferramenta de apoio à avaliação profissional e devem ser interpretados em conjunto com exame clínico, histórico e julgamento do profissional responsável."
 
 
+@storage_operation
 def make_pdf(snapshot: dict, db) -> bytes:
     output = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -201,7 +202,7 @@ def make_pdf(snapshot: dict, db) -> bytes:
     for analysis in a["analyses"]:
         flow += [p("Captura · " + analysis["media"]["view"], "Heading2")]
         media = db.get(AssessmentMedia, analysis["media_id"])
-        verified = LocalStorageProvider().verified_path(
+        verified = get_storage().verified_path(
             media.storage_key, media.sha256, media.size
         )
         frames = analysis["frames"]

@@ -20,6 +20,8 @@ import {
   FileText,
 } from "lucide-react";
 import { api, post, type Patient, type Assessment } from "@/lib/api";
+import PlatformAdmin from "@/components/PlatformAdmin";
+import AccessBlocked, { type AccessStatus } from "@/components/AccessBlocked";
 import PatientForm from "@/components/PatientForm";
 import Capture from "@/components/Capture";
 import VideoCapture from "@/components/VideoCapture";
@@ -57,6 +59,7 @@ const kindLabels: Record<string, string> = {
 };
 
 export default function Home() {
+  const [accessBlocked, setAccessBlocked] = useState<AccessStatus | null>(null);
   const [user, setUser] = useState<User | null>(null),
     [loading, setLoading] = useState(true),
     [protocolPending, setProtocolPending] = useState(false),
@@ -86,6 +89,28 @@ export default function Home() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+  useEffect(() => {
+    const denied = (event: Event) => {
+      const detail = (event as CustomEvent<AccessStatus>).detail;
+      if (detail.code !== "session_expired") setAccessBlocked(detail);
+      setUser(null);
+      setPatients([]);
+      setDashboard(null);
+      setPatient(null);
+      setHistory([]);
+      setAssessment(null);
+      setProtocolPending(false);
+    };
+    window.addEventListener("kinua-access-denied", denied);
+    return () => window.removeEventListener("kinua-access-denied", denied);
+  }, []);
+  useEffect(() => {
+    if (!user) return;
+    const timer = setInterval(() => {
+      void api("/auth/me").catch(() => {});
+    }, 15000);
+    return () => clearInterval(timer);
+  }, [user]);
   async function refresh() {
     try {
       const [p, d] = await Promise.all([
@@ -99,7 +124,7 @@ export default function Home() {
     }
   }
   useEffect(() => {
-    if (user) void refresh();
+    if (user && user.role !== "platform_admin") void refresh();
   }, [user]);
   useEffect(() => {
     document.documentElement.dataset.theme = dark ? "dark" : "light";
@@ -189,7 +214,23 @@ export default function Home() {
         <p>Carregando sua clínica…</p>
       </main>
     );
+  if (accessBlocked)
+    return (
+      <AccessBlocked
+        status={accessBlocked}
+        onBack={() => setAccessBlocked(null)}
+      />
+    );
   if (!user) return <Login onLogin={setUser} />;
+  if (user.role === "platform_admin")
+    return (
+      <PlatformAdmin
+        onLogout={async () => {
+          await post("/auth/logout", {});
+          setUser(null);
+        }}
+      />
+    );
   const filtered = patients.filter((p) =>
     p.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
   );

@@ -16,7 +16,7 @@ from .clinical.engine import AttentionEngine, ClinicalRulesEngine
 from .core.database import SessionLocal
 from .repositories import audit
 from .rom import ROMEngine
-from .storage import LocalStorageProvider
+from .storage import get_storage, storage_operation
 from .vision.provider import MediaPipePoseProvider
 from .vision.video import frames
 
@@ -41,6 +41,7 @@ def heartbeat(job_id, progress, run_token=None):
             raise Cancelled()
 
 
+@storage_operation
 def process_job(job_id, provider_factory=MediaPipePoseProvider, expected_token=None):
     with SessionLocal() as db:
         job = db.get(m.ProcessingJob, job_id)
@@ -60,9 +61,7 @@ def process_job(job_id, provider_factory=MediaPipePoseProvider, expected_token=N
     records = []
     try:
         for index, timestamp, rgb in frames(
-            LocalStorageProvider().verified_path(
-                media.storage_key, media.sha256, media.size
-            ),
+            get_storage().verified_path(media.storage_key, media.sha256, media.size),
             options["fps"],
             media.metadata_json,
         ):
