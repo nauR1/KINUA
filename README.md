@@ -6,7 +6,7 @@ Esta versão acrescenta administração global, assinaturas/expiração, control
 - [Implantação Railway, storage e backup](docs/deployment.md)
 - [Relatório da entrega 2.3](docs/release-2.3.md)
 
-Atualização: faça backup, pare workers antigos, execute `python -m alembic upgrade head` e `python -m alembic check` no backend e recompile o frontend. Migration atual: `7c301a230000`. Clínicas e usuários existentes permanecem ativos, sem expiração. O primeiro administrador global exige bootstrap explícito; nenhum admin atual é promovido automaticamente.
+Atualização: faça backup, pare workers antigos, execute `python -m alembic upgrade head` e `python -m alembic check` no backend e recompile o frontend. Migration atual: `8d402b230000` (sucede `7c301a230000`). Clínicas e usuários existentes permanecem ativos, sem expiração. O primeiro administrador global exige bootstrap explícito; nenhum admin atual é promovido automaticamente.
 
 ## Histórico e instalação — KINUA
 
@@ -57,13 +57,16 @@ Requisitos: Docker Engine/Desktop com Compose v2, internet na instalação e apr
 1. Copie `.env.example` para `.env` na raiz. Substitua `POSTGRES_PASSWORD` por senha aleatória longa. Para a URL de conexão, use caracteres seguros de URL (ex.: hexadecimal), ou percent-encode caracteres especiais.
 2. Na raiz execute:
    ```sh
+   docker compose up -d db
+   docker compose run --rm --build backend python -m alembic upgrade head
+   docker compose run --rm backend python -m alembic check
    docker compose up --build -d
    docker compose exec backend python -m app.seed
    ```
-   O segundo comando cria uma clínica vazia e solicita a senha inicial do administrador (mínimo 12 caracteres). O antigo `--demo` foi desativado; demonstração exige o comando explícito descrito em [Ambiente demo](docs/demo-environment.md). E-mail padrão: `admin@biometria.local`; personalize com `--email profissional@exemplo.com`.
+   O comando app.seed cria uma clínica vazia e solicita a senha inicial do administrador (mínimo 12 caracteres). O antigo `--demo` foi desativado; demonstração exige o comando explícito descrito em [Ambiente demo](docs/demo-environment.md). E-mail padrão: `admin@biometria.local`; personalize com `--email profissional@exemplo.com`.
 3. Abra **http://localhost:3000** e entre com a senha escolhida.
 
-Migrações executam no startup do backend, após saúde do PostgreSQL. Banco e mídia persistem em volumes separados. `docker compose down` para parar; não use `down -v` se quiser preservar dados. Logs: `docker compose logs backend frontend`.
+Migrações são executadas explicitamente antes de iniciar API e worker; o startup do backend apenas inicia o Uvicorn, preservando a correção remota. Não execute migrations em cada réplica. Banco e mídia persistem em volumes separados. `docker compose down` para parar; não use `down -v` se quiser preservar dados. Logs: `docker compose logs backend frontend`.
 
 O arquivo Compose restringe a porta web a localhost e não expõe PostgreSQL. Para disponibilizar em rede, configure HTTPS, origins corretas, cookies Secure, proxy com limites de upload e política de segurança; não exponha esta configuração de desenvolvimento diretamente à internet.
 
