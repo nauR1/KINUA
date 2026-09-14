@@ -2,17 +2,20 @@
 
 from copy import deepcopy
 from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import Field
-from sqlalchemy import select, func
+from pydantic import Field, field_validator
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
+
 from . import models as m
 from .core.database import get_db
 from .core.security import current_user
-from .repositories import assessment_for, patient_for, audit
-from .schemas import StrictModel, Landmark
+from .repositories import assessment_for, audit, patient_for
+from .rom import DEFINITIONS, VERSION, ROMEngine
+from .rom import definition as rom_definition
+from .schemas import Landmark, StrictModel
 from .services.serialization import row
-from .rom import DEFINITIONS, VERSION, definition as rom_definition, ROMEngine
 
 router = APIRouter()
 
@@ -26,6 +29,13 @@ class ROMPreview(StrictModel):
     height: int = Field(ge=64, le=4096)
     brightness: float = Field(ge=0, le=1)
     plane_confirmed: Literal[True]
+
+    @field_validator("landmarks")
+    @classmethod
+    def unique_landmarks(cls, value):
+        if len({p.name for p in value}) != len(value):
+            raise ValueError("Landmarks duplicados")
+        return value
 
 
 @router.post("/rom/preview")
@@ -398,9 +408,20 @@ def rom_history(
 ):
     patient_for(db, patient_id, user)
     records = db.execute(
-        select(m.ROMMeasurement, m.Analysis, m.Assessment)
+        select(
+            m.ROMMeasurement,
+            m.Analysis,
+            m.Assessment,
+            m.AssessmentMedia.view,
+            m.AttentionFinding.state,
+        )
         .join(m.Analysis, m.Analysis.id == m.ROMMeasurement.analysis_id)
         .join(m.Assessment, m.Assessment.id == m.Analysis.assessment_id)
+        .join(m.AssessmentMedia, m.AssessmentMedia.id == m.Analysis.media_id)
+        .outerjoin(
+            m.AttentionFinding,
+            m.AttentionFinding.measurement_id == m.ROMMeasurement.measurement_id,
+        )
         .where(
             m.Assessment.patient_id == patient_id,
             m.Assessment.clinic_id == user.clinic_id,
@@ -408,22 +429,17 @@ def rom_history(
         .order_by(m.Assessment.created_at, m.Analysis.created_at, m.ROMMeasurement.id)
     ).all()
     result = []
-    for measurement, analysis, assessment in records:
-        finding = db.scalar(
-            select(m.AttentionFinding).where(
-                m.AttentionFinding.measurement_id == measurement.measurement_id
-            )
-        )
+    for measurement, analysis, assessment, view, review_state in records:
         result.append(
             {
                 **row(measurement),
                 "assessment_id": assessment.id,
                 "created_at": row(analysis)["created_at"],
-                "view": db.get(m.AssessmentMedia, analysis.media_id).view,
+                "view": view,
                 "provider_version": analysis.provider_version,
                 "engine_version": analysis.biomechanics_version,
                 "fps": analysis.motion.get("target_fps"),
-                "review_state": finding.state if finding else "needs_review",
+                "review_state": review_state or "needs_review",
             }
         )
     return result

@@ -1,5 +1,6 @@
-from app import models as m
 from test_api import patient, upload
+
+from app import models as m
 
 
 def snapshots(auth, landmarks):

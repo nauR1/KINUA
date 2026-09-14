@@ -1,10 +1,12 @@
 "use client";
 import { useState } from "react";
-import { post, type Patient } from "@/lib/api";
+import { api, post, type Patient } from "@/lib/api";
 export default function PatientForm({
   onSaved,
   onCancel,
+  patient,
 }: {
+  patient?: Patient | null;
   onSaved: (p: Patient) => void;
   onCancel: () => void;
 }) {
@@ -23,7 +25,17 @@ export default function PatientForm({
       ? Number(form.get("weight_kg"))
       : null;
     try {
-      onSaved(await post<Patient>("/patients", data));
+      onSaved(
+        patient
+          ? await api<Patient>("/patients/" + patient.id, {
+              method: "PATCH",
+              body: JSON.stringify({
+                ...data,
+                expected_revision: patient.revision,
+              }),
+            })
+          : await post<Patient>("/patients", data),
+      );
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -35,9 +47,9 @@ export default function PatientForm({
       <div className="section-heading">
         <div>
           <span className="eyebrow">PRONTUÁRIO</span>
-          <h2>Novo paciente</h2>
+          <h2>{patient ? "Editar paciente" : "Novo paciente"}</h2>
         </div>
-        <button className="ghost" onClick={onCancel}>
+        <button className="ghost" onClick={onCancel} disabled={busy}>
           Cancelar
         </button>
       </div>
@@ -46,6 +58,7 @@ export default function PatientForm({
           <label className="span2">
             Nome completo
             <input
+              defaultValue={patient?.name ?? ""}
               name="name"
               required
               minLength={2}
@@ -56,6 +69,7 @@ export default function PatientForm({
           <label>
             Data de nascimento
             <input
+              defaultValue={patient?.birth_date ?? ""}
               name="birth_date"
               type="date"
               required
@@ -64,7 +78,10 @@ export default function PatientForm({
           </label>
           <label>
             Dominância
-            <select name="dominance">
+            <select
+              defaultValue={patient?.details.dominance ?? ""}
+              name="dominance"
+            >
               <option value="">Não informado</option>
               <option value="right">Direita</option>
               <option value="left">Esquerda</option>
@@ -73,23 +90,42 @@ export default function PatientForm({
           </label>
           <label>
             Telefone
-            <input name="phone" type="tel" maxLength={40} />
+            <input
+              defaultValue={patient?.details.phone ?? ""}
+              name="phone"
+              type="tel"
+              maxLength={40}
+            />
           </label>
           <label>
             E-mail
-            <input name="email" type="email" maxLength={254} />
+            <input
+              defaultValue={patient?.details.email ?? ""}
+              name="email"
+              type="email"
+              maxLength={254}
+            />
           </label>
           <label>
             Profissão
-            <input name="occupation" maxLength={160} />
+            <input
+              defaultValue={patient?.details.occupation ?? ""}
+              name="occupation"
+              maxLength={160}
+            />
           </label>
           <label>
             Prática / modalidade esportiva
-            <input name="sport" maxLength={160} />
+            <input
+              defaultValue={patient?.details.sport ?? ""}
+              name="sport"
+              maxLength={160}
+            />
           </label>
           <label>
             Altura (cm)
             <input
+              defaultValue={patient?.details.height_cm ?? ""}
               name="height_cm"
               type="number"
               min={30}
@@ -100,6 +136,7 @@ export default function PatientForm({
           <label>
             Peso (kg)
             <input
+              defaultValue={patient?.details.weight_kg ?? ""}
               name="weight_kg"
               type="number"
               min={1}
@@ -109,7 +146,10 @@ export default function PatientForm({
           </label>
           <label className="span2">
             Sexo biológico · preencher somente quando necessário à avaliação
-            <select name="biological_sex">
+            <select
+              defaultValue={patient?.details.biological_sex ?? ""}
+              name="biological_sex"
+            >
               <option value="">Não coletado</option>
               <option value="female">Feminino</option>
               <option value="male">Masculino</option>
@@ -118,15 +158,27 @@ export default function PatientForm({
           </label>
           <label className="span2">
             Queixa principal
-            <textarea name="complaint" maxLength={10000} />
+            <textarea
+              defaultValue={patient?.details.complaint ?? ""}
+              name="complaint"
+              maxLength={10000}
+            />
           </label>
           <label className="span2">
             Histórico relevante
-            <textarea name="history" maxLength={10000} />
+            <textarea
+              defaultValue={patient?.details.history ?? ""}
+              name="history"
+              maxLength={10000}
+            />
           </label>
           <label className="span2">
             Observações
-            <textarea name="notes" maxLength={10000} />
+            <textarea
+              defaultValue={patient?.details.notes ?? ""}
+              name="notes"
+              maxLength={10000}
+            />
           </label>
         </div>
         {error && (
@@ -139,7 +191,11 @@ export default function PatientForm({
             Dados visíveis apenas para profissionais desta clínica.
           </span>
           <button disabled={busy}>
-            {busy ? "Salvando…" : "Cadastrar paciente"}
+            {busy
+              ? "Salvando…"
+              : patient
+                ? "Salvar paciente"
+                : "Cadastrar paciente"}
           </button>
         </div>
       </form>

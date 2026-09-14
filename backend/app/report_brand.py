@@ -4,7 +4,8 @@ import json
 import re
 from pathlib import Path
 
-from reportlab.graphics.shapes import Circle, Drawing, Group, Path as VectorPath, String
+from reportlab.graphics.shapes import Circle, Drawing, Group, String
+from reportlab.graphics.shapes import Path as VectorPath
 from reportlab.lib.colors import HexColor
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont

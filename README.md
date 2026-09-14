@@ -1,6 +1,6 @@
 # KINUA
 
-Inteligência em movimento humano. A versão 2.1 aplica a identidade KINUA ao login, navegação, painel, captura, resultados e relatórios, com SVGs nativos e fonte Manrope local. Veja [identidade e componentes](docs/kinua-brand.md). Diretórios e identificadores técnicos anteriores permanecem compatíveis; não é necessário migrar dados para esta atualização visual.
+Inteligência em movimento humano. A versão 2.2.1 estabiliza o núcleo existente: autenticação, pacientes, foto/câmera/vídeo, Protocolos e ROM. Consulte o [relatório de auditoria](docs/audit-2.2.1.md) para correções, testes e limites. A identidade KINUA usa SVGs nativos e Manrope local.
 
 Plataforma de avaliação corporal assistida para fisioterapeutas. Versão 2 executável de foto/webcam e vídeo, landmarks reais, medição geométrica 2D, revisão profissional e relatório PDF. **Não fornece diagnóstico automático e não está clinicamente validado. Use somente dados fictícios nesta versão de desenvolvimento.**
 
@@ -48,9 +48,9 @@ Requisitos: Docker Engine/Desktop com Compose v2, internet na instalação e apr
 2. Na raiz execute:
    ```sh
    docker compose up --build -d
-   docker compose exec backend python -m app.seed --demo
+   docker compose exec backend python -m app.seed
    ```
-   O segundo comando solicita a senha inicial do administrador (mínimo 12 caracteres). Sem `--demo`, cria clínica vazia. E-mail padrão: `admin@biometria.local`; personalize com `--email profissional@exemplo.com`.
+   O segundo comando cria uma clínica vazia e solicita a senha inicial do administrador (mínimo 12 caracteres). Use `--demo` somente em ambiente separado para inserir pacientes fictícios. E-mail padrão: `admin@biometria.local`; personalize com `--email profissional@exemplo.com`.
 3. Abra **http://localhost:3000** e entre com a senha escolhida.
 
 Migrações executam no startup do backend, após saúde do PostgreSQL. Banco e mídia persistem em volumes separados. `docker compose down` para parar; não use `down -v` se quiser preservar dados. Logs: `docker compose logs backend frontend`.
@@ -77,7 +77,7 @@ DATABASE_URL=postgresql+psycopg://usuario:senha@127.0.0.1:5432/biometria
 Ainda em `backend/`:
 ```sh
 python -m alembic upgrade head
-python -m app.seed --demo
+python -m app.seed
 python -m app.vision.provider
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-access-log
 ```
@@ -102,7 +102,7 @@ Abra **http://127.0.0.1:3000**. A interface encaminha `/api` para `http://127.0.
 6. Registre a conclusão e conclua. Para repetir a vista ou acrescentar outra, retorne à captura antes de concluir.
 7. Baixe o PDF. Pelo histórico, reabra a avaliação posteriormente.
 
-O PDF reflete observações **salvas**. Antes de baixar, use Salvar observações. Concluir exige revisão de todos os registros e uma conclusão preenchida. Avaliações concluídas ficam imutáveis.
+O PDF reflete observações **salvas**. A interface impede gerar relatório com alterações locais pendentes; use Salvar observações. Concluir exige revisão de todos os registros e uma conclusão preenchida. Avaliações concluídas ficam imutáveis.
 
 ## Câmera e smartphone
 Webcam exige `localhost` ou HTTPS e autorização do navegador. Uma URL HTTP por IP de rede não garante acesso à câmera. Câmera traseira é preferida quando disponível; confirme o enquadramento. Tablet é suportado pela interface responsiva. Smartphone exige servir a aplicação por HTTPS acessível ao dispositivo; não existe aplicativo nativo. Gravação de movimento usa MediaRecorder, sem áudio, até 60 segundos; alternativamente envie MP4/WebM até 100 MiB. Autorize a câmera no modo Vídeo, grave, confira as duas confirmações e clique Processar vídeo. Pode sair da tela: acompanhe o job ao reabrir Captura pelo histórico.
@@ -113,15 +113,17 @@ Com o ambiente Python ativo, em `backend/`:
 python -m pytest -q
 python -m alembic check
 ```
+Lint do backend: instale `ruff` no ambiente de desenvolvimento e execute `python -m ruff check app tests migrations` (configuração em `backend/ruff.toml`).
 Para executar a mesma suíte contra PostgreSQL, defina `TEST_DATABASE_URL` com uma conexão de teste. Cada teste cria um schema aleatório `test_*` e o remove ao terminar; o usuário de teste precisa de permissão para criar schemas. Use um banco dedicado a testes. A CI inclui PostgreSQL 17.
 Os testes usam banco temporário e dados sintéticos. Não apontam para pacientes reais. Em `frontend/`:
 ```sh
 npm run typecheck
 npm test
+npm run lint
 npm run build
 npm audit
 ```
-Os testes de navegador exigem Chrome, backend/frontend/worker executando e uma conta de demonstração. Defina `E2E_PASSWORD`, opcionalmente `E2E_EMAIL`, e `E2E_IMAGE` apontando para foto de teste autorizada. Para webcam/gravação, defina também `E2E_CAMERA_FILE` com um arquivo Y4M autorizado para a câmera de teste do Chrome. Execute `npm run test:e2e`. A inferência utiliza o modelo real; testes de integração ficam explicitamente skipped sem as respectivas variáveis. As mídias de teste não são incluídas no repositório.
+Os testes de navegador exigem Chrome, backend/frontend/worker executando em banco dedicado a QA, `E2E_ISOLATED=1` e uma conta fictícia. Configure `E2E_BASE_URL` para esse ambiente; nunca use o banco da clínica. Defina `E2E_PASSWORD`, opcionalmente `E2E_EMAIL`, e `E2E_IMAGE` apontando para foto de teste autorizada. Para webcam/gravação, defina também `E2E_CAMERA_FILE` com um arquivo Y4M autorizado para a câmera de teste do Chrome. Execute `npm run test:e2e`. A inferência utiliza o modelo real; testes de integração ficam explicitamente skipped sem as respectivas variáveis. As mídias de teste não são incluídas no repositório.
 
 ## Banco, migrações e arquivos
 As migrations criam entidades relacionais de clínica, usuários/profissionais, sessão, pacientes, avaliações, mídia, análise, frames, landmarks, medidas, regras, achados, revisões, relatórios e auditoria. Para alterar esquema: `alembic revision --autogenerate -m descricao`, revisar o arquivo e testar upgrade/downgrade em banco descartável antes de aplicar. Não usar `create_all` no startup.
@@ -153,3 +155,11 @@ Atualização: faça backup do PostgreSQL e armazenamento. No backend execute `p
 Verificação: `python -m pytest -q` no backend; `npm run typecheck`, `npm test`, `npm run lint` e `npm run build` no frontend. O E2E protocols-rom.spec.ts exige E2E_ISOLATED=1, credenciais e câmera de fixture em banco separado. Nunca execute testes de escrita na clínica.
 
 Os próximos módulos do roadmap não foram implementados nesta rodada. Testes de engenharia não constituem validação clínica; permanecem as restrições de uso e implantação previamente documentadas.
+
+## Atualização de estabilização 2.2.1
+
+Faça backup consistente. Aguarde jobs ativos terminarem, pare API e worker e execute `python -m alembic upgrade head`; a revisão 2a9c071bf630 acrescenta somente o identificador de tentativa do worker. Execute `python -m alembic check`, reinicie API/worker e reconstrua o frontend. Não mantenha workers antigos rodando durante a troca de versão.
+
+Edição de paciente fica no perfil, em Editar paciente. Alterações concorrentes pelo formulário são recusadas por revisão; preserve o texto e reabra antes de reaplicar. Notas e conclusão também usam comparação com o valor originalmente carregado. Protocolos serializam o autosave e preservam a revisão de cada etapa.
+
+Não foram adicionados novos módulos. O ambiente local permanece sem liberação assistencial pela internet, conforme [prontidão clínica](docs/clinical-readiness.md).

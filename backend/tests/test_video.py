@@ -1,22 +1,11 @@
-import cv2
-import numpy as np
 import pytest
 from sqlalchemy import select
-from app import jobs, models as m
-from app.schemas import Landmark
-from app.vision.video import probe, frames
 from test_api import patient
 
-
-@pytest.fixture
-def video(tmp_path):
-    path = tmp_path / "fixture.webm"
-    writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"VP80"), 10, (640, 480))
-    assert writer.isOpened()
-    for _ in range(20):
-        writer.write(np.full((480, 640, 3), 180, dtype=np.uint8))
-    writer.release()
-    return path
+from app import jobs
+from app import models as m
+from app.schemas import Landmark
+from app.vision.video import frames, probe
 
 
 def setup_video(auth, video):

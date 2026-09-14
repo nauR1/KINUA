@@ -2,12 +2,14 @@
 
 import io
 import math
-from PIL import Image
+
 import pytest
-from app import models as m
-from app.storage import LocalStorageProvider
-from app.biomechanics.engine import angle
+from PIL import Image
 from test_api import assessment, upload
+
+from app import models as m
+from app.biomechanics.engine import angle
+from app.storage import LocalStorageProvider
 
 
 def test_partial_assessment_update_preserves_existing_fields(auth):
@@ -81,8 +83,9 @@ def test_angle_against_constructed_reference_sweep():
 
 
 def test_production_config_refuses_insecure_defaults():
-    from app.core.config import Settings
     from pydantic import ValidationError
+
+    from app.core.config import Settings
 
     with pytest.raises(ValidationError, match="SECURE_COOKIES"):
         Settings(

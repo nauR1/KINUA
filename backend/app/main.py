@@ -2,45 +2,48 @@ import hashlib
 import secrets
 from datetime import timedelta
 from typing import Literal
+
 from fastapi import (
-    FastAPI,
     Depends,
+    FastAPI,
+    File,
+    Form,
     HTTPException,
     Request,
     Response,
     UploadFile,
-    File,
-    Form,
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
-from sqlalchemy import select, func, delete
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as DBSession
-from . import models as m, schemas as s
+
+from . import models as m
+from . import schemas as s
+from .api_protocols import router as protocol_router
+from .api_video import router as video_router
+from .clinical.engine import RULESET
+from .core.body_limit import BodyLimitMiddleware
 from .core.config import settings
 from .core.database import get_db
 from .core.security import (
-    current_user,
-    admin,
-    hasher,
-    digest,
-    verify_password,
     DUMMY_HASH,
+    admin,
+    current_user,
+    digest,
+    hasher,
     utc,
+    verify_password,
 )
-from .repositories import patient_for, assessment_for, audit
-from .services.analysis import analyze
-from .services.serialization import row, assessment_result
-from .storage import normalize_image, LocalStorageProvider
 from .reports import make_pdf
-from .clinical.engine import RULESET
-from .core.body_limit import BodyLimitMiddleware
-from .api_video import router as video_router
-from .api_protocols import router as protocol_router
+from .repositories import assessment_for, audit, patient_for
+from .services.analysis import analyze
 from .services.comparison import compare
+from .services.serialization import assessment_result, row
+from .storage import LocalStorageProvider, normalize_image
 
-app = FastAPI(title="KINUA API", version="2.2.0")
+app = FastAPI(title="KINUA API", version="2.2.1")
 app.include_router(video_router)
 app.include_router(protocol_router)
 
@@ -111,7 +114,7 @@ async def conflict(request, exc):
 @app.get("/health")
 def health(db: DBSession = Depends(get_db)):
     db.execute(select(1))
-    return {"status": "ok", "service": "biometria", "version": "2.1.0"}
+    return {"status": "ok", "service": "biometria", "version": app.version}
 
 
 @app.post("/auth/login")
@@ -255,12 +258,19 @@ def create_patient(
 @app.patch("/patients/{patient_id}")
 def update_patient(
     patient_id: str,
-    body: s.PatientInput,
+    body: s.PatientUpdate,
     user: m.User = Depends(current_user),
     db: DBSession = Depends(get_db),
 ):
-    patient = patient_for(db, patient_id, user)
-    data = body.model_dump(mode="json")
+    patient = patient_for(db, patient_id, user, lock=True)
+    if (
+        body.expected_revision is not None
+        and body.expected_revision != row(patient)["revision"]
+    ):
+        raise HTTPException(
+            409, "Paciente alterado em outra janela. Reabra o cadastro antes de salvar."
+        )
+    data = body.model_dump(mode="json", exclude={"expected_revision"})
     patient.name, patient.birth_date = data.pop("name"), data.pop("birth_date")
     patient.details = data
     audit(db, user, "patient.updated", patient.id)
@@ -326,6 +336,13 @@ def update_assessment(
         raise HTTPException(
             409, "Avaliação concluída é imutável. Crie um acompanhamento."
         )
+    for field in ("notes", "conclusion"):
+        expected = getattr(body, "expected_" + field)
+        if expected is not None and expected != getattr(assessment, field):
+            raise HTTPException(
+                409,
+                "Observações alteradas em outra janela. Reabra a avaliação antes de salvar.",
+            )
     if body.status == "completed":
         if db.scalar(
             select(m.AssessmentProtocol.id).where(
@@ -364,7 +381,9 @@ def update_assessment(
             raise HTTPException(
                 422, "Escreva a conclusão profissional antes de concluir."
             )
-    for key, value in body.model_dump(exclude_unset=True).items():
+    for key, value in body.model_dump(
+        exclude_unset=True, exclude={"expected_notes", "expected_conclusion"}
+    ).items():
         setattr(assessment, key, value)
     audit(db, user, "assessment.updated", assessment.id)
     db.commit()
@@ -382,6 +401,14 @@ async def upload(
     assessment = assessment_for(db, assessment_id, user)
     if assessment.status == "completed":
         raise HTTPException(409, "Avaliação concluída.")
+    if db.scalar(
+        select(m.AssessmentProtocol.id).where(
+            m.AssessmentProtocol.assessment_id == assessment.id
+        )
+    ):
+        raise HTTPException(
+            409, "Abra a etapa de captura do protocolo para enviar mídia."
+        )
     if assessment.mode == "video":
         raise HTTPException(422, "Use upload de vídeo para este protocolo.")
     data = await file.read(settings().max_upload_bytes + 1)

@@ -2,18 +2,19 @@ import os
 import tempfile
 import uuid
 from pathlib import Path
+
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from fastapi.testclient import TestClient
 
 _test_dir = tempfile.TemporaryDirectory(prefix="biometria-tests-")
 os.environ["DATABASE_URL"] = "sqlite:///" + str(Path(_test_dir.name) / "bootstrap.db")
 os.environ["STORAGE_DIR"] = str(Path(_test_dir.name) / "media")
-from app.core.database import Base, get_db
-from app.core.security import hasher
-from app.main import app
-from app import models as m
+from app import models as m  # noqa: E402
+from app.core.database import Base, get_db  # noqa: E402
+from app.core.security import hasher  # noqa: E402
+from app.main import app  # noqa: E402
 
 
 @pytest.fixture
@@ -116,3 +117,17 @@ def landmarks():
         {"name": n, "x": p[0], "y": p[1], "visibility": 0.99, "z": 0}
         for n, p in positions.items()
     ]
+
+
+@pytest.fixture
+def video(tmp_path):
+    import cv2
+    import numpy as np
+
+    path = tmp_path / "fixture.webm"
+    writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"VP80"), 10, (640, 480))
+    assert writer.isOpened()
+    for _ in range(20):
+        writer.write(np.full((480, 640, 3), 180, dtype=np.uint8))
+    writer.release()
+    return path

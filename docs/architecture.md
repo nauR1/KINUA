@@ -22,3 +22,11 @@ Sites foi avaliado: seu runtime Cloudflare Workers não executa este backend Pyt
 
 ## Riscos
 Medição 2D depende de perspectiva, roupa, oclusão e enquadramento. Visibility não é probabilidade clínica. Sem calibração não há centímetros, profundidade métrica ou diagnóstico. Câmera exige HTTPS ou localhost. Validação clínica e regulatória é uma etapa independente antes do uso assistencial. Desenvolvimento e demonstração usam dados fictícios.
+
+## Estabilização 2.2.1
+
+ProcessingJob.run_token identifica cada tentativa. Heartbeat, publicação e falhas tardias são condicionados à mesma tentativa para impedir publicação após cancelamento/retry. A troca de versão exige parar workers antigos.
+
+Pacientes retornam revisão derivada do conteúdo; a UI envia expected_revision ao editar. Notas/conclusão enviam expected_notes/expected_conclusion. Bloqueios transacionais e comparação impedem sobrescrita por clientes concorrentes que usam esses contratos. Clientes antigos que omitem os campos mantêm compatibilidade, sem essa proteção otimista. Etapas de protocolo continuam com revisão obrigatória.
+
+Protocolos, ROM e snapshots estão descritos em protocols.md e rom.md. Revisões de achados e histórico ROM usam consultas agrupadas para reduzir N+1.

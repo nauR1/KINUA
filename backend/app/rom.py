@@ -2,7 +2,8 @@
 
 import math
 import statistics
-from .biomechanics.engine import angle, MIN_VISIBILITY
+
+from .biomechanics.engine import MIN_VISIBILITY, angle
 
 VERSION = "rom-1.0.0"
 TECHNICAL_RULES = {

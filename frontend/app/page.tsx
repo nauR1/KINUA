@@ -390,8 +390,8 @@ export default function Home() {
           )}
           {protocolPending && (
             <p className="info-box" role="status">
-              Salve a etapa atual antes de sair do protocolo. O salvamento
-              automático está ativo.
+              Existem alterações não salvas. Salve os dados atuais antes de
+              sair.
             </p>
           )}
           {error && (
@@ -610,6 +610,7 @@ export default function Home() {
             <>
               {adding ? (
                 <PatientForm
+                  patient={patient}
                   onCancel={() => setAdding(false)}
                   onSaved={async (p) => {
                     await refresh();
@@ -628,6 +629,9 @@ export default function Home() {
                       Avaliar paciente
                     </button>
                   </div>
+                  <button className="secondary" onClick={() => setAdding(true)}>
+                    Editar paciente
+                  </button>
                   <section className="panel patient-detail">
                     <span className="avatar large">{patient.name[0]}</span>
                     <div>
@@ -833,6 +837,7 @@ export default function Home() {
                     {assessment.status !== "completed" && (
                       <button
                         className={tab === "capture" ? "selected" : "ghost"}
+                        disabled={protocolPending}
                         onClick={() => setTab("capture")}
                       >
                         01 Captura
@@ -860,6 +865,7 @@ export default function Home() {
                     />
                   ) : (
                     <Results
+                      onPending={setProtocolPending}
                       key={assessment.id}
                       assessment={assessment}
                       onChanged={(a) => {

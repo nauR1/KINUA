@@ -7,3 +7,6 @@
 **/test-results
 **/playwright-report
 .git
+
+!backend/migrations/data
+!backend/migrations/data/*.json

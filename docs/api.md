@@ -66,3 +66,7 @@ Todos exigem sessão, autorização por clínica e proteção CSRF nas mutaçõe
 - GET /patients/{id}/rom: histórico e revisão.
 
 ROM reutiliza upload, jobs, resultados, revisão e relatório existentes. PDF do protocolo agrega snapshots das avaliações filhas autorizadas.
+
+## Concorrência de edição (2.2.1)
+
+PATCH de paciente aceita expected_revision, obtido no campo revision da leitura. PATCH de avaliação aceita expected_notes e expected_conclusion com os valores previamente lidos. Divergência retorna 409 e preserva o conteúdo salvo. A interface envia essas precondições; clientes legados que omitem os campos mantêm compatibilidade sem proteção otimista. Etapas de protocolo continuam exigindo revision.

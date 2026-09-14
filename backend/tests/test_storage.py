@@ -1,8 +1,10 @@
 import io
+
 import pytest
-from PIL import Image
 from fastapi import HTTPException
-from app.storage import normalize_image, LocalStorageProvider
+from PIL import Image
+
+from app.storage import LocalStorageProvider, normalize_image
 
 
 def test_image_metadata_removed():

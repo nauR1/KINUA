@@ -1,5 +1,6 @@
 from datetime import date
 from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
@@ -37,6 +38,10 @@ class PatientInput(StrictModel):
         return value
 
 
+class PatientUpdate(PatientInput):
+    expected_revision: str | None = Field(default=None, max_length=64)
+
+
 class AssessmentInput(StrictModel):
     patient_id: str
     kind: Literal["postural", "functional", "movement", "sports", "followup"] = (
@@ -67,6 +72,8 @@ class VideoJobInput(StrictModel):
 
 
 class AssessmentUpdate(StrictModel):
+    expected_notes: str | None = Field(default=None, max_length=20000)
+    expected_conclusion: str | None = Field(default=None, max_length=20000)
     notes: str = Field(default="", max_length=20000)
     conclusion: str = Field(default="", max_length=20000)
     status: Literal["draft", "review", "completed"] = "review"

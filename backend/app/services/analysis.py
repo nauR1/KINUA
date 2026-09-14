@@ -1,20 +1,22 @@
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+
+from ..biomechanics.engine import BiomechanicsEngine
+from ..clinical.engine import AttentionEngine, ClinicalRulesEngine
 from ..models import (
-    AssessmentMedia,
     Analysis,
+    AssessmentMedia,
+    AssessmentProtocol,
+    AttentionFinding,
+    BiomechanicalMeasurement,
     PoseFrame,
     PoseLandmark,
-    BiomechanicalMeasurement,
-    AttentionFinding,
     User,
 )
-from ..schemas import AnalyzeInput
 from ..repositories import assessment_for, audit
+from ..schemas import AnalyzeInput
 from ..storage import LocalStorageProvider, brightness
-from ..biomechanics.engine import BiomechanicsEngine
-from ..clinical.engine import ClinicalRulesEngine, AttentionEngine
 
 
 def analyze(
@@ -25,6 +27,12 @@ def analyze(
         raise HTTPException(
             409, "Avaliação concluída. Crie uma nova avaliação para outra captura."
         )
+    if db.scalar(
+        select(AssessmentProtocol.id).where(
+            AssessmentProtocol.assessment_id == assessment.id
+        )
+    ):
+        raise HTTPException(409, "Analise a captura pela etapa vinculada ao protocolo.")
     media = db.scalar(
         select(AssessmentMedia).where(
             AssessmentMedia.id == body.media_id,

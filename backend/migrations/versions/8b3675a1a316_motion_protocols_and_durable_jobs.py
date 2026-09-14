@@ -4,9 +4,8 @@ Revision ID: 8b3675a1a316
 Revises: aedc54d62754
 """
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 revision = "8b3675a1a316"
 down_revision = "aedc54d62754"

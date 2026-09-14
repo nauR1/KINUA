@@ -1,9 +1,11 @@
 import math
+
 import pytest
 from pydantic import ValidationError
-from app.biomechanics.engine import angle, horizontal_tilt, BiomechanicsEngine
-from app.schemas import Landmark, AnalyzeInput
-from app.clinical.engine import ClinicalRulesEngine, RULESET
+
+from app.biomechanics.engine import BiomechanicsEngine, angle, horizontal_tilt
+from app.clinical.engine import RULESET, ClinicalRulesEngine
+from app.schemas import AnalyzeInput, Landmark
 
 
 @pytest.mark.parametrize(

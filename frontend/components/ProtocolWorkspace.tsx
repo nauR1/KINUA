@@ -34,6 +34,10 @@ export default function ProtocolWorkspace({
     [busy, setBusy] = useState(false),
     [stepPending, setStepPending] = useState(false),
     [savedConclusion, setSavedConclusion] = useState(assessment.conclusion);
+  const conclusionQueue = useRef<Promise<boolean>>(Promise.resolve(true));
+  const conclusionValue = useRef(conclusion);
+  conclusionValue.current = conclusion;
+  const conclusionSaved = useRef(assessment.conclusion);
   const saveRef = useRef<() => Promise<boolean>>(async () => true);
   const done = assessment.status === "completed";
   const conclusionDirty = conclusion !== savedConclusion && !done;
@@ -56,20 +60,27 @@ export default function ProtocolWorkspace({
       window.removeEventListener("beforeunload", leave);
     };
   }, [conclusion, conclusionDirty]);
-  async function saveConclusion() {
-    if (!conclusionDirty) return true;
-    const value = conclusion;
-    try {
-      await api(`/assessments/${assessment.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ conclusion: value }),
-      });
-      setSavedConclusion(value);
-      return true;
-    } catch (e) {
-      setError((e as Error).message);
-      return false;
-    }
+  function saveConclusion(): Promise<boolean> {
+    conclusionQueue.current = conclusionQueue.current.then(async () => {
+      const value = conclusionValue.current;
+      if (done || value === conclusionSaved.current) return true;
+      try {
+        await api(`/assessments/${assessment.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            conclusion: value,
+            expected_conclusion: conclusionSaved.current,
+          }),
+        });
+        conclusionSaved.current = value.trim();
+        setSavedConclusion(value);
+        return true;
+      } catch (e) {
+        setError((e as Error).message);
+        return false;
+      }
+    });
+    return conclusionQueue.current;
   }
   const count = run.steps.filter((s) =>
     ["completed", "skipped"].includes(s.state),

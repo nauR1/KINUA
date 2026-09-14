@@ -5,29 +5,35 @@ import subprocess
 import sys
 import time
 from datetime import timedelta
+
 import cv2
 from fastapi import HTTPException
 from sqlalchemy import select, update
-from .core.database import SessionLocal
+
 from . import models as m
+from .biomechanics.motion import MotionEngine, summarize
+from .clinical.engine import AttentionEngine, ClinicalRulesEngine
+from .core.database import SessionLocal
+from .repositories import audit
+from .rom import ROMEngine
 from .storage import LocalStorageProvider
 from .vision.provider import MediaPipePoseProvider
 from .vision.video import frames
-from .biomechanics.motion import MotionEngine, summarize
-from .clinical.engine import ClinicalRulesEngine, AttentionEngine
-from .repositories import audit
-from .rom import ROMEngine
 
 
 class Cancelled(Exception):
     pass
 
 
-def heartbeat(job_id, progress):
+def heartbeat(job_id, progress, run_token=None):
     with SessionLocal() as db:
         changed = db.execute(
             update(m.ProcessingJob)
-            .where(m.ProcessingJob.id == job_id, m.ProcessingJob.state == "running")
+            .where(
+                m.ProcessingJob.id == job_id,
+                m.ProcessingJob.state == "running",
+                m.ProcessingJob.run_token == run_token,
+            )
             .values(progress=min(progress, 0.95), updated_at=m.now())
         ).rowcount
         db.commit()
@@ -35,11 +41,14 @@ def heartbeat(job_id, progress):
             raise Cancelled()
 
 
-def process_job(job_id, provider_factory=MediaPipePoseProvider):
+def process_job(job_id, provider_factory=MediaPipePoseProvider, expected_token=None):
     with SessionLocal() as db:
         job = db.get(m.ProcessingJob, job_id)
         if not job or job.state != "running":
             return
+        run_token = job.run_token
+        if expected_token is not None and run_token != expected_token:
+            raise Cancelled()
         media = db.get(m.AssessmentMedia, job.media_id)
         assessment = db.get(m.Assessment, job.assessment_id)
         options = job.options
@@ -60,6 +69,7 @@ def process_job(job_id, provider_factory=MediaPipePoseProvider):
             heartbeat(
                 job_id,
                 timestamp / (max(media.metadata_json["duration_seconds"], 1) * 1000),
+                run_token,
             )
             error = ""
             try:
@@ -117,7 +127,11 @@ def process_job(job_id, provider_factory=MediaPipePoseProvider):
         # This write locks the job and serializes cancellation with publication.
         locked = db.execute(
             update(m.ProcessingJob)
-            .where(m.ProcessingJob.id == job_id, m.ProcessingJob.state == "running")
+            .where(
+                m.ProcessingJob.id == job_id,
+                m.ProcessingJob.state == "running",
+                m.ProcessingJob.run_token == run_token,
+            )
             .values(updated_at=m.now())
         ).rowcount
         if not locked:
@@ -218,10 +232,14 @@ def process_job(job_id, provider_factory=MediaPipePoseProvider):
         db.commit()
 
 
-def fail(job_id, message):
+def fail(job_id, message, run_token=None):
     with SessionLocal() as db:
         job = db.get(m.ProcessingJob, job_id)
-        if job and job.state == "running":
+        if (
+            job
+            and job.state == "running"
+            and (run_token is None or job.run_token == run_token)
+        ):
             job.state = "failed"
             job.error = message
             job.updated_at = m.now()
@@ -255,7 +273,7 @@ def claim():
             .where(
                 m.ProcessingJob.id == candidate.id, m.ProcessingJob.state == "pending"
             )
-            .values(state="running", updated_at=m.now())
+            .values(state="running", updated_at=m.now(), run_token=m.uid())
         ).rowcount
         db.commit()
         return candidate.id if changed else None
@@ -264,38 +282,55 @@ def claim():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--job")
+    parser.add_argument("--token")
     parser.add_argument("--once", action="store_true")
     args = parser.parse_args()
     if args.job:
         try:
-            process_job(args.job)
+            process_job(args.job, expected_token=args.token)
         except Cancelled:
             pass
         except ValueError as exc:
-            fail(args.job, str(exc))
+            fail(args.job, str(exc), args.token)
         except HTTPException as exc:
-            fail(args.job, str(exc.detail))
+            fail(args.job, str(exc.detail), args.token)
         except Exception:
             fail(
                 args.job,
                 "Falha no processamento. Confira o modelo e o arquivo, depois tente novamente.",
+                args.token,
             )
         return
     while True:
         job_id = claim()
         if job_id:
+            with SessionLocal() as db:
+                run_token = db.get(m.ProcessingJob, job_id).run_token
             try:
                 result = subprocess.run(
-                    [sys.executable, "-m", "app.jobs", "--job", job_id],
+                    [
+                        sys.executable,
+                        "-m",
+                        "app.jobs",
+                        "--job",
+                        job_id,
+                        "--token",
+                        run_token,
+                    ],
                     timeout=240,
                     capture_output=True,
                 )
                 if result.returncode:
-                    fail(job_id, "O processo de análise terminou inesperadamente.")
+                    fail(
+                        job_id,
+                        "O processo de análise terminou inesperadamente.",
+                        run_token,
+                    )
             except subprocess.TimeoutExpired:
                 fail(
                     job_id,
                     "Tempo limite de quatro minutos excedido. Use um vídeo menor.",
+                    run_token,
                 )
         if args.once:
             return

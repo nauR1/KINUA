@@ -2,9 +2,10 @@
 
 import math
 import statistics
-from .engine import BiomechanicsEngine, angle, MIN_VISIBILITY
 
-VERSION = "2.0.0"
+from .engine import MIN_VISIBILITY, BiomechanicsEngine, angle, horizontal_tilt
+
+VERSION = "2.0.1"
 PHASE_RULES = {
     "version": "1.0.0",
     "kind": "experimental_technical",
@@ -130,9 +131,7 @@ class MotionEngine:
                 limb + "_trunk_sagittal",
                 "Inclinação sagital aparente do tronco " + label,
                 [limb + "_hip", limb + "_shoulder"],
-                lambda a, b: math.degrees(
-                    math.atan2(abs(b[0] - a[0]), abs(b[1] - a[1]))
-                ),
+                lambda a, b: horizontal_tilt((a[1], a[0]), (b[1], b[0])),
                 "trunk",
                 limb,
                 allowed=sag,
@@ -163,6 +162,7 @@ class MotionEngine:
             unit="razão",
             allowed=view in ("anterior", "posterior"),
         )
+        quality["valid_frames"] = int(any(m["value"] is not None for m in measures))
         return measures, quality
 
 
@@ -315,6 +315,7 @@ def summarize(records, view, protocol, side, target_fps):
                 min_index=lo[0],
                 max_index=hi[0],
                 peak_timestamp_ms=times[hi[0]],
+                status="measured",
             )
         summaries.append(
             {

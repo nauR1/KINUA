@@ -3,11 +3,13 @@
 import argparse
 import getpass
 import os
+
 from sqlalchemy import select
+
+from .clinical.engine import RULESET
 from .core.database import SessionLocal
 from .core.security import hasher
-from .models import Clinic, User, Professional, Patient, ClinicalRule
-from .clinical.engine import RULESET
+from .models import Clinic, ClinicalRule, Patient, Professional, User
 from .repositories import audit
 
 

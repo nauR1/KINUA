@@ -1,13 +1,15 @@
 import math
-import cv2
 from pathlib import Path
+
+import cv2
+
 from ..core.config import settings
 
 
 def validate_upload(path: Path) -> dict:
+    import json
     import subprocess
     import sys
-    import json
 
     try:
         result = subprocess.run(

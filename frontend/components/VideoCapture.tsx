@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Camera, Square, Upload, Play, LoaderCircle } from "lucide-react";
 import { api, post, type Assessment, type ProcessingJob } from "@/lib/api";
+import { cameraError } from "@/lib/camera";
 import ROMLive from "./ROMLive";
 export default function VideoCapture({
   assessment,
@@ -76,6 +77,8 @@ export default function VideoCapture({
     };
   }, [active, assessment, onSaved]);
   function selectFile(f: File) {
+    setFile(null);
+    setPreview("");
     setError("");
     if (f.size > 100 * 1024 * 1024) {
       setError("Limite de 100 MB.");
@@ -113,6 +116,16 @@ export default function VideoCapture({
         stream.current.getTracks().forEach((t) => t.stop());
         return;
       }
+      stream.current.getVideoTracks().forEach((t) =>
+        t.addEventListener("ended", () => {
+          if (mounted.current) {
+            stop();
+            setError(
+              "A câmera foi desconectada. Confira a gravação antes de continuar.",
+            );
+          }
+        }),
+      );
       const mime = ["video/webm;codecs=vp8", "video/webm", "video/mp4"].find(
         (m) => MediaRecorder.isTypeSupported(m),
       );
@@ -151,7 +164,7 @@ export default function VideoCapture({
       }, 1000);
     } catch (e) {
       stop();
-      setError((e as Error).message);
+      setError(cameraError(e));
     } finally {
       setBusy(false);
     }
@@ -317,7 +330,7 @@ export default function VideoCapture({
             {["failed", "cancelled"].includes(j.state) && (
               <button
                 className="secondary"
-                disabled={busy || active}
+                disabled={busy || active || recording}
                 onClick={() => retry(j)}
               >
                 Tentar novamente
@@ -396,7 +409,7 @@ export default function VideoCapture({
           <select
             value={fps}
             onChange={(e) => setFps(Number(e.target.value))}
-            disabled={busy || active}
+            disabled={busy || active || recording}
           >
             <option value={2}>2 quadros por segundo</option>
             <option value={5}>5 quadros por segundo</option>
@@ -408,7 +421,7 @@ export default function VideoCapture({
             type="checkbox"
             checked={level}
             onChange={(e) => setLevel(e.target.checked)}
-            disabled={busy || active}
+            disabled={busy || active || recording}
           />
           Conferi a câmera fixa e nivelada.
         </label>
@@ -417,7 +430,7 @@ export default function VideoCapture({
             type="checkbox"
             checked={plane}
             onChange={(e) => setPlane(e.target.checked)}
-            disabled={busy || active}
+            disabled={busy || active || recording}
           />
           Confirmei o plano do movimento.
         </label>

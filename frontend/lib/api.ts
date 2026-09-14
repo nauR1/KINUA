@@ -2,23 +2,30 @@ export async function api<T = unknown>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
-  const response = await fetch("/api" + path, {
-    ...options,
-    credentials: "include",
-    headers: {
-      "X-Requested-With": "Biometria",
-      ...(options.body instanceof FormData
-        ? {}
-        : { "Content-Type": "application/json" }),
-      ...options.headers,
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch("/api" + path, {
+      ...options,
+      credentials: "include",
+      headers: {
+        "X-Requested-With": "Biometria",
+        ...(options.body instanceof FormData
+          ? {}
+          : { "Content-Type": "application/json" }),
+        ...options.headers,
+      },
+    });
+  } catch {
+    throw new Error(
+      "Não foi possível conectar ao servidor. Confira a conexão e tente novamente.",
+    );
+  }
   if (!response.ok) {
     const body = await response
       .json()
       .catch(() => ({ detail: "Não foi possível conectar ao servidor." }));
     const message = Array.isArray(body.detail)
-      ? body.detail.map((x: { msg: string }) => x.msg).join("; ")
+      ? "Confira os campos informados e seus limites antes de salvar."
       : body.detail;
     throw new Error(message || "Falha na solicitação.");
   }
@@ -27,6 +34,7 @@ export async function api<T = unknown>(
 export const post = <T>(path: string, body: unknown) =>
   api<T>(path, { method: "POST", body: JSON.stringify(body) });
 export type Patient = {
+  revision?: string;
   id: string;
   name: string;
   birth_date: string;

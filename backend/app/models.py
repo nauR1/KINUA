@@ -1,16 +1,18 @@
 import uuid
 from datetime import datetime, timezone
+
 from sqlalchemy import (
-    String,
-    Text,
-    ForeignKey,
+    JSON,
     DateTime,
     Float,
+    ForeignKey,
     Integer,
-    JSON,
+    String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column
+
 from .core.database import Base
 
 
@@ -144,6 +146,7 @@ class ProcessingJob(Base):
     )
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
     state: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    run_token: Mapped[str | None] = mapped_column(String(36), nullable=True)
     progress: Mapped[float] = mapped_column(Float, default=0)
     options: Mapped[dict] = mapped_column(JSON)
     error: Mapped[str] = mapped_column(Text, default="")

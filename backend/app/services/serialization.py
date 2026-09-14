@@ -1,14 +1,18 @@
+import hashlib
+import json
 from datetime import datetime, timezone
+
 from sqlalchemy import inspect, select
+
 from ..models import (
     Analysis,
     AssessmentMedia,
-    BiomechanicalMeasurement,
     AttentionFinding,
+    BiomechanicalMeasurement,
     PoseFrame,
     PoseLandmark,
-    ProfessionalReview,
     ProcessingJob,
+    ProfessionalReview,
 )
 
 
@@ -21,6 +25,11 @@ def row(item):
             data[column.key] = value.isoformat()
         else:
             data[column.key] = value
+    if item.__tablename__ == "patients":
+        content = {k: data[k] for k in ("name", "birth_date", "details")}
+        data["revision"] = hashlib.sha256(
+            json.dumps(content, sort_keys=True).encode()
+        ).hexdigest()
     return data
 
 
@@ -45,21 +54,20 @@ def analysis_result(db, analysis):
         )
     ]
     result["findings"] = []
-    for finding in db.scalars(
+    findings = db.scalars(
         select(AttentionFinding)
         .where(AttentionFinding.analysis_id == analysis.id)
         .order_by(AttentionFinding.region, AttentionFinding.side, AttentionFinding.id)
-    ):
-        value = row(finding)
-        value["reviews"] = [
-            row(x)
-            for x in db.scalars(
-                select(ProfessionalReview)
-                .where(ProfessionalReview.finding_id == finding.id)
-                .order_by(ProfessionalReview.created_at)
-            )
-        ]
-        result["findings"].append(value)
+    ).all()
+    reviews = {f.id: [] for f in findings}
+    if reviews:
+        for review in db.scalars(
+            select(ProfessionalReview)
+            .where(ProfessionalReview.finding_id.in_(reviews))
+            .order_by(ProfessionalReview.created_at)
+        ):
+            reviews[review.finding_id].append(row(review))
+    result["findings"] = [{**row(f), "reviews": reviews[f.id]} for f in findings]
     frames = db.scalars(
         select(PoseFrame)
         .where(PoseFrame.analysis_id == analysis.id)
@@ -87,8 +95,8 @@ def analysis_result(db, analysis):
 
 
 def assessment_result(db, assessment):
-    from ..models import ROMSession, AssessmentStepResult, AssessmentProtocol
     from ..api_protocols import get_run, protocol_result
+    from ..models import AssessmentProtocol, AssessmentStepResult, ROMSession
 
     result = row(assessment)
     session = db.get(ROMSession, assessment.id)

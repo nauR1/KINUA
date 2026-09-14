@@ -4,8 +4,9 @@ import hashlib
 import urllib.request
 from pathlib import Path
 from typing import Protocol
-from ..schemas import Landmark, LANDMARK_NAMES
+
 from ..core.config import settings
+from ..schemas import LANDMARK_NAMES, Landmark
 
 MODEL_URL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task"
 MODEL_HASH = "59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a"

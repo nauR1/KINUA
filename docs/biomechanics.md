@@ -31,3 +31,11 @@ Cada medida usa a menor visibility entre seus landmarks. A captura mostra a méd
 Testes cobrem 45°/90°/180°, invariância da escala, correção de proporção, oclusão, plano, iluminação, segmentos nulos e pontos inválidos. Isso comprova implementação matemática; validade e reprodutibilidade clínicas exigem estudos com padrão de referência, populações e protocolos definidos.
 
 Referência técnica do provider: https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker/web_js
+
+## Convenções verificadas na auditoria 2.2.1
+
+Origem no canto superior esquerdo, X cresce à direita e Y para baixo. X/Y do detector são normalizados; a geometria usa X × largura/altura e Y. Z é relativo ao modelo e não representa centímetros; não entra nos ângulos 2D. Ângulos em graus, séries em milissegundos e velocidades em graus/segundo ou razão/segundo. Inclinações reportadas são magnitudes, sem inferir qual lado está elevado.
+
+Direita/esquerda são do corpo do paciente, provenientes dos nomes anatômicos do PoseProvider. Câmera, imagem salva e skeleton não são espelhados artificialmente por CSS/canvas. Espelhar coordenadas preserva magnitudes; a inferência de lado pelo modelo depende da imagem e precisa ser conferida pelo profissional. Não houve validação física da lateralidade em todos os dispositivos.
+
+Engine 1.0.1 recusa coordenadas não finitas; MotionEngine 2.0.1 recusa tronco degenerado e conta medidas dinâmicas válidas ao avaliar o frame. Resultados antigos permanecem com as versões anteriores, sem recálculo.

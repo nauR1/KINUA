@@ -1,15 +1,18 @@
 """Geometria 2D, sem diagnóstico, pixels brutos ou dependência de MediaPipe."""
 
 import math
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
+
 from ..schemas import Landmark
 
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 # Critério técnico de visibilidade, não referência clínica nem acurácia.
 MIN_VISIBILITY = 0.65
 
 
 def angle(a: tuple, b: tuple, c: tuple) -> float:
+    if not all(math.isfinite(value) for p in (a, b, c) for value in p):
+        raise ValueError("Coordenada não finita")
     u, v = (a[0] - b[0], a[1] - b[1]), (c[0] - b[0], c[1] - b[1])
     length = math.hypot(*u) * math.hypot(*v)
     if length < 1e-12:
@@ -20,6 +23,8 @@ def angle(a: tuple, b: tuple, c: tuple) -> float:
 
 
 def horizontal_tilt(a: tuple, b: tuple) -> float:
+    if not all(math.isfinite(value) for p in (a, b) for value in p):
+        raise ValueError("Coordenada não finita")
     dx, dy = b[0] - a[0], b[1] - a[1]
     if math.hypot(dx, dy) < 1e-12:
         raise ValueError("Segmento de comprimento nulo")

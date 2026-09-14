@@ -1,7 +1,8 @@
 import pytest
-from app.biomechanics.motion import segment_phases, MotionEngine, summarize
-from app.schemas import Landmark, AssessmentInput
 from pydantic import ValidationError
+
+from app.biomechanics.motion import MotionEngine, segment_phases, summarize
+from app.schemas import AssessmentInput, Landmark
 
 
 def test_complete_and_incomplete_squats():

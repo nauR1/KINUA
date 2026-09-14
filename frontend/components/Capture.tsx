@@ -9,6 +9,7 @@ import {
   LoaderCircle,
 } from "lucide-react";
 import { MediaPipePoseProvider } from "@/vision/provider";
+import { cameraError } from "@/lib/camera";
 import { drawSkeleton } from "@/vision/draw";
 import type { PoseProvider } from "@/vision/types";
 import { api, post, type Assessment } from "@/lib/api";
@@ -30,6 +31,7 @@ export default function Capture({
     canvas = useRef<HTMLCanvasElement>(null),
     stream = useRef<MediaStream | null>(null),
     provider = useRef<PoseProvider | null>(null),
+    mounted = useRef(true),
     running = useRef(false),
     processing = useRef(false);
   const [live, setLive] = useState(false),
@@ -53,14 +55,15 @@ export default function Capture({
     stream.current = null;
     setLive(false);
   }
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
       running.current = false;
       stream.current?.getTracks().forEach((t) => t.stop());
       provider.current?.close();
-    },
-    [],
-  );
+    };
+  }, []);
   useEffect(() => {
     return () => {
       if (preview) URL.revokeObjectURL(preview);
@@ -148,6 +151,20 @@ export default function Capture({
         },
         audio: false,
       });
+      if (!mounted.current) {
+        stream.current.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      stream.current.getVideoTracks().forEach((t) =>
+        t.addEventListener("ended", () => {
+          if (mounted.current) {
+            stop();
+            setError(
+              "A câmera foi desconectada. Conecte novamente ou envie uma foto.",
+            );
+          }
+        }),
+      );
       if (video.current) {
         video.current.srcObject = stream.current;
         await video.current.play();
@@ -156,11 +173,7 @@ export default function Capture({
       setLive(true);
     } catch (e) {
       stop();
-      setError(
-        e instanceof DOMException && e.name === "NotAllowedError"
-          ? "Acesso à câmera não autorizado. Permita a câmera no navegador ou envie uma foto."
-          : (e as Error).message,
-      );
+      if (mounted.current) setError(cameraError(e));
     } finally {
       setBusy(false);
     }
@@ -185,6 +198,8 @@ export default function Capture({
   }
   async function uploadFile(file: File) {
     stop();
+    setBlob(null);
+    setPreview("");
     setError("");
     if (file.size > 20 * 1024 * 1024) {
       setError("Use uma imagem de até 20 MB.");

@@ -61,7 +61,7 @@ function FindingReview({
         <p>{finding.description}</p>
         {onLocate && (
           <button className="secondary" onClick={onLocate}>
-            Ver instante da medida máxima (
+            Ver instante do extremo observado (
             {((finding.explanation.timestamp_ms || 0) / 1000).toFixed(2)} s)
           </button>
         )}
@@ -143,9 +143,11 @@ export function AnalysisImage({ analysis }: { analysis: Analysis }) {
 export default function Results({
   assessment,
   onChanged,
+  onPending,
 }: {
   assessment: Assessment;
   onChanged: (a: Assessment) => void;
+  onPending: (pending: boolean) => void;
 }) {
   const [selected, setSelected] = useState(0),
     [notes, setNotes] = useState(assessment.notes),
@@ -158,6 +160,28 @@ export default function Results({
   const analysis =
       assessment.analyses[Math.min(selected, assessment.analyses.length - 1)],
     done = assessment.status === "completed";
+  const baseline = useRef({
+    notes: assessment.notes,
+    conclusion: assessment.conclusion,
+  });
+  const dirty =
+    !done &&
+    (notes !== baseline.current.notes ||
+      conclusion !== baseline.current.conclusion);
+  useEffect(() => {
+    onPending(dirty);
+    const leave = (e: BeforeUnloadEvent) => {
+      if (dirty) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", leave);
+    return () => {
+      onPending(false);
+      window.removeEventListener("beforeunload", leave);
+    };
+  }, [dirty, onPending]);
   async function reload() {
     try {
       onChanged(await api<Assessment>("/assessments/" + assessment.id));
@@ -176,10 +200,13 @@ export default function Results({
           body: JSON.stringify({
             notes,
             conclusion,
+            expected_notes: baseline.current.notes,
+            expected_conclusion: baseline.current.conclusion,
             status: complete ? "completed" : "review",
           }),
         }),
       );
+      baseline.current = { notes, conclusion };
       setMessage(complete ? "Avaliação concluída." : "Observações salvas.");
     } catch (e) {
       setError((e as Error).message);
@@ -188,6 +215,10 @@ export default function Results({
     }
   }
   async function report() {
+    if (dirty) {
+      setError("Salve as observações antes de gerar o relatório.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {

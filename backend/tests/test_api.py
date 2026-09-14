@@ -1,6 +1,8 @@
 import io
+
 from PIL import Image
 from sqlalchemy import select
+
 from app import models as m
 
 

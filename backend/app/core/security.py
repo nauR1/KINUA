@@ -1,12 +1,14 @@
 import hashlib
 import secrets
 from datetime import datetime, timezone
+
 from argon2 import PasswordHasher
-from argon2.exceptions import VerificationError, InvalidHashError
+from argon2.exceptions import InvalidHashError, VerificationError
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.orm import Session as DBSession
-from .database import get_db
+
 from ..models import Session, User
+from .database import get_db
 
 hasher = PasswordHasher()
 DUMMY_HASH = hasher.hash(secrets.token_urlsafe(32))

@@ -3,8 +3,10 @@ import io
 import uuid
 from pathlib import Path
 from typing import Protocol
-from PIL import Image, ImageOps, ImageStat, UnidentifiedImageError
+
 from fastapi import HTTPException
+from PIL import Image, ImageOps, ImageStat, UnidentifiedImageError
+
 from .core.config import settings
 
 Image.MAX_IMAGE_PIXELS = 20_000_000

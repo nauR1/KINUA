@@ -1,0 +1,44 @@
+{
+  "version": "2.2.1",
+  "regression_date": "2026-09-09",
+  "finalization_date": "2026-09-14",
+  "tests": {
+    "sqlite": {
+      "tests": 140,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "postgres": {
+      "tests": 140,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "frontend_unit": {
+      "tests": 6,
+      "failures": 0,
+      "skipped": 0
+    },
+    "e2e": {
+      "tests": 11,
+      "failures": 0,
+      "skipped": 0
+    }
+  },
+  "checks": {
+    "ruff": "PASS",
+    "frontend_lint": "PASS",
+    "typescript": "PASS",
+    "fresh_install": "PASS",
+    "production_build": "PASS",
+    "migration_up_down_up": "PASS",
+    "pdf_visual_four_pages": "PASS"
+  },
+  "limitations": [
+    "Docker runtime unavailable",
+    "Physical device matrix not performed",
+    "No clinical validation or internet deployment approval",
+    "No formal penetration, load or accessibility certification"
+  ]
+}

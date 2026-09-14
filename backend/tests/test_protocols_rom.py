@@ -1,12 +1,15 @@
 import json
 import math
 from pathlib import Path
+
 import pytest
-from app import models as m, jobs
-from app.rom import ROMEngine, definition, DEFINITIONS
-from app.schemas import Landmark
 from test_api import patient
-from test_video import video, enqueue  # noqa: F401
+from test_video import enqueue  # noqa: F401
+
+from app import jobs
+from app import models as m
+from app.rom import DEFINITIONS, ROMEngine, definition
+from app.schemas import Landmark
 
 
 @pytest.fixture
@@ -195,7 +198,7 @@ def pose(movement, degrees, width=640, height=480, mirror=False):
 
 
 @pytest.mark.parametrize("movement", list(DEFINITIONS))
-@pytest.mark.parametrize("degrees", [0, 30, 90, 150, 180])
+@pytest.mark.parametrize("degrees", [0, 30, 45, 90, 135, 150, 180])
 def test_rom_geometry_known_angles_scale_and_mirror(movement, degrees):
     e = ROMEngine(definition(movement))
     view = "anterior" if e.config["plane"] == "frontal" else "lateral_right"

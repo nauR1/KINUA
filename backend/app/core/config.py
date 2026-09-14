@@ -1,6 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 from urllib.parse import urlsplit
+
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 

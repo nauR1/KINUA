@@ -1,17 +1,19 @@
 from pathlib import Path
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
+
+from . import models as m
+from .core.config import settings
 from .core.database import get_db
 from .core.security import current_user
-from .core.config import settings
 from .repositories import assessment_for, audit
-from .storage import LocalStorageProvider
-from .schemas import VideoJobInput
-from . import models as m
-from .services.serialization import row
-from .vision.video import validate_upload
 from .rom import allowed_views
+from .schemas import VideoJobInput
+from .services.serialization import row
+from .storage import LocalStorageProvider
+from .vision.video import validate_upload
 
 router = APIRouter()
 
