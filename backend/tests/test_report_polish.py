@@ -1,4 +1,6 @@
 import io
+import os
+from pathlib import Path
 
 from pypdf import PdfReader
 from test_api import assessment, patient
@@ -80,9 +82,26 @@ def test_rom_pdf_uses_human_labels_and_preserves_limitations(
     assert analysis["media"]["view"] == "lateral_right"
     assert analysis["motion"]["signal"] == "right_rom"
 
+    preview_note = (
+        "Registro de acompanhamento para validação visual do relatório KINUA. " * 90
+    )
+    updated = auth.patch(
+        f"/assessments/{assessment_id}",
+        json={"notes": preview_note},
+    )
+    assert updated.status_code == 200, updated.text
+
     response = auth.get(f"/assessments/{assessment_id}/report")
     assert response.status_code == 200
-    text = pdf_text(response)
+    reader = PdfReader(io.BytesIO(response.content))
+    assert len(reader.pages) >= 3
+    text = "\n".join(page.extract_text() or "" for page in reader.pages)
+
+    artifact_dir = os.environ.get("KINUA_REPORT_ARTIFACT_DIR")
+    if artifact_dir:
+        output = Path(artifact_dir)
+        output.mkdir(parents=True, exist_ok=True)
+        (output / "KINUA_Paciente_Teste_ROM.pdf").write_bytes(response.content)
 
     for expected in (
         "Paciente Teste",
