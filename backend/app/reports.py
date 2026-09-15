@@ -15,17 +15,17 @@ from reportlab.platypus import (
 
 from .models import AssessmentMedia
 from .report_brand import (
-    GRAY,
-    MINT,
-    NAVY,
-    TEAL,
     apply_typography,
     brand_header,
     format_date,
+    GRAY,
     label,
+    MINT,
     motion_signal_label,
+    NAVY,
     pose_engine_label,
     rom_measurement_label,
+    TEAL,
     technical_version_label,
 )
 from .storage import get_storage, storage_operation
