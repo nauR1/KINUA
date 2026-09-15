@@ -10,7 +10,6 @@ __pycache__/
 data/
 !backend/migrations/data/
 !backend/migrations/data/*.json
-*.log
 frontend/public/models/*.task
 frontend/public/wasm/
 frontend/public/pose-worker.js
