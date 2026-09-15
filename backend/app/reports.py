@@ -14,8 +14,32 @@ from reportlab.platypus import (
 )
 
 from .models import AssessmentMedia
-from .report_brand import GRAY, MINT, NAVY, TEAL, apply_typography, brand_header, label
+from .report_brand import (
+    GRAY,
+    MINT,
+    NAVY,
+    TEAL,
+    apply_typography,
+    brand_header,
+    format_date,
+    label,
+    motion_signal_label,
+    pose_engine_label,
+    rom_measurement_label,
+    technical_version_label,
+)
 from .storage import get_storage, storage_operation
+
+NOTICE = (
+    "Os resultados automatizados apresentados constituem ferramenta de apoio à "
+    "avaliação profissional e devem ser interpretados em conjunto com exame clínico, "
+    "histórico e julgamento do profissional responsável."
+)
+QUALITY_NOTICE = (
+    "A própria análise técnica indicou limitação de estabilidade ou qualidade da "
+    "captura. Interprete as medidas com cautela e confirme os achados na revisão "
+    "profissional."
+)
 
 
 def frame_image(path, media, frame):
@@ -40,9 +64,11 @@ def frame_image(path, media, frame):
     picture.thumbnail((1200, 1200))
     draw = ImageDraw.Draw(picture)
     points = {
-        p["name"]: p
-        for p in frame["landmarks"]
-        if p["visibility"] >= 0.65 and 0 <= p["x"] <= 1 and 0 <= p["y"] <= 1
+        point["name"]: point
+        for point in frame["landmarks"]
+        if point["visibility"] >= 0.65
+        and 0 <= point["x"] <= 1
+        and 0 <= point["y"] <= 1
     }
     edges = [("left_shoulder", "right_shoulder"), ("left_hip", "right_hip")]
     for side in ("left", "right"):
@@ -58,8 +84,8 @@ def frame_image(path, media, frame):
             ]
         ]
 
-    def xy(p):
-        return (p["x"] * picture.width, p["y"] * picture.height)
+    def xy(point):
+        return (point["x"] * picture.width, point["y"] * picture.height)
 
     for a, b in edges:
         if a in points and b in points:
@@ -78,8 +104,8 @@ def motion_chart(analysis):
 
     key = analysis["motion"]["signal"]
     frames = analysis["frames"]
-    values = [f["measurements"]["values"].get(key) for f in frames]
-    valid = [v for v in values if v is not None]
+    values = [frame["measurements"]["values"].get(key) for frame in frames]
+    valid = [value for value in values if value is not None]
     if not valid:
         return None
     drawing = Drawing(460, 170)
@@ -87,7 +113,7 @@ def motion_chart(analysis):
     hi = max(valid)
     span = max(hi - lo, 1)
     last = max(frames[-1]["timestamp_ms"], 1)
-    drawing.add(String(5, 155, key, fontSize=9))
+    drawing.add(String(5, 155, motion_signal_label(analysis), fontSize=9))
     drawing.add(Line(35, 25, 450, 25, strokeColor=colors.grey))
     drawing.add(String(2, 135, f"{hi:.1f}", fontSize=8))
     drawing.add(String(2, 25, f"{lo:.1f}", fontSize=8))
@@ -120,7 +146,28 @@ def motion_chart(analysis):
     return drawing
 
 
-NOTICE = "Os resultados automatizados apresentados constituem ferramenta de apoio à avaliação profissional e devem ser interpretados em conjunto com exame clínico, histórico e julgamento do profissional responsável."
+def capture_quality_limited(analysis):
+    if analysis.get("quality", {}).get("messages"):
+        return True
+    for record in analysis.get("rom_measurements", []):
+        if record.get("details", {}).get("movement_start_index") is None:
+            return True
+    return False
+
+
+def make_table(data, widths):
+    table = Table(data, colWidths=widths, repeatRows=1)
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E9F8F4")),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+                ("LINEBELOW", (0, 0), (-1, -1), 0.3, colors.HexColor(GRAY)),
+            ]
+        )
+    )
+    return table
 
 
 @storage_operation
@@ -143,7 +190,7 @@ def make_pdf(snapshot: dict, db) -> bytes:
     def p(value, style="BodyText"):
         return Paragraph(escape(str(value)).replace("\n", "<br/>"), styles[style])
 
-    a = snapshot["assessment"]
+    assessment = snapshot["assessment"]
     flow = [
         brand_header(),
         Spacer(1, 0.5 * cm),
@@ -151,30 +198,30 @@ def make_pdf(snapshot: dict, db) -> bytes:
         p(snapshot["patient"]["name"], "Heading2"),
         p(
             "Data: "
-            + a["created_at"][:10]
+            + format_date(assessment["created_at"])
             + " · Profissional: "
             + snapshot["professional"]
         ),
-        p("Tipo: " + label(a["kind"]) + " · Estado: " + label(a["status"])),
+        p(
+            "Tipo: "
+            + label(assessment["kind"])
+            + " · Estado: "
+            + label(assessment["status"])
+        ),
         Spacer(1, 0.4 * cm),
         p(NOTICE),
     ]
-    protocol = a.get("assessment_protocol")
+
+    protocol = assessment.get("assessment_protocol")
     if protocol:
         flow += [
             p(protocol["snapshot"]["name"], "Heading2"),
             p("KINUA Assessment Protocols · versão " + protocol["snapshot"]["version"]),
         ]
-        step_states = {
-            "not_started": "Não iniciada",
-            "in_progress": "Em andamento",
-            "completed": "Concluída",
-            "skipped": "Ignorada com justificativa",
-        }
         for index, step in enumerate(protocol["steps"], 1):
             flow.append(
                 p(
-                    f"{index}. {step['definition']['name']} · {step_states[step['state']]}",
+                    f"{index}. {step['definition']['name']} · {label(step['state'])}",
                     "Heading3",
                 )
             )
@@ -184,14 +231,12 @@ def make_pdf(snapshot: dict, db) -> bytes:
             if step["note"]:
                 flow.append(p("Observação / justificativa: " + step["note"]))
             if step["completed_at"]:
-                flow.append(p("Concluída em " + step["completed_at"]))
+                flow.append(p("Concluída em " + format_date(step["completed_at"])))
             if step["skipped_at"]:
-                flow.append(p("Ignorada em " + step["skipped_at"]))
-            if step["child_assessment_id"]:
-                flow.append(p("Avaliação vinculada: " + step["child_assessment_id"]))
-        for child in snapshot.get("protocol_children", []):
+                flow.append(p("Ignorada em " + format_date(step["skipped_at"])))
+        for index, child in enumerate(snapshot.get("protocol_children", []), 1):
             flow += [
-                p("Revisão da captura " + child["id"], "Heading3"),
+                p(f"Revisão da captura {index}", "Heading3"),
                 p("Estado: " + label(child["status"])),
                 p("Observações: " + (child["notes"] or "Não registradas.")),
                 p(
@@ -199,8 +244,9 @@ def make_pdf(snapshot: dict, db) -> bytes:
                     + (child["conclusion"] or "Ainda não concluída.")
                 ),
             ]
-    for analysis in a["analyses"]:
-        flow += [p("Captura · " + analysis["media"]["view"], "Heading2")]
+
+    for analysis in assessment["analyses"]:
+        flow.append(p("Captura · " + label(analysis["media"]["view"]), "Heading2"))
         media = db.get(AssessmentMedia, analysis["media_id"])
         verified = get_storage().verified_path(
             media.storage_key, media.sha256, media.size
@@ -211,22 +257,16 @@ def make_pdf(snapshot: dict, db) -> bytes:
             config = motion["rom"]
             flow += [
                 p("KINUA ROM · " + config["name"], "Heading2"),
-                p(
-                    "Plano: "
-                    + ("frontal" if config["plane"] == "frontal" else "sagital")
-                    + " · versão "
-                    + config["version"]
-                ),
+                p("Plano: " + label(config["plane"]) + " · versão " + config["version"]),
             ]
             for record in analysis.get("rom_measurements", []):
-                side = "Direito" if record["side"] == "right" else "Esquerdo"
                 peak_label = (
                     "Flexão residual mínima"
                     if config["direction"] < 0
                     else "Pico observado"
                 )
                 flow += [
-                    p(side, "Heading3"),
+                    p(rom_measurement_label(config, record["side"]), "Heading3"),
                     p(
                         f"{peak_label}: {record['peak_value']:.1f}° · mínimo {record['minimum']:.1f}° · máximo {record['maximum']:.1f}° · excursão observada {record['excursion']:.1f}°."
                     ),
@@ -237,17 +277,27 @@ def make_pdf(snapshot: dict, db) -> bytes:
                         f"Amostras válidas: {record['details']['valid_samples']}/{record['details']['total_samples']}. Visibilidade não representa acurácia clínica."
                     ),
                 ]
+                if record.get("details", {}).get("movement_start_index") is None:
+                    flow.append(
+                        p("Início do movimento não identificado com estabilidade suficiente.")
+                    )
+        if capture_quality_limited(analysis):
+            flow += [
+                p("Qualidade de captura limitada", "Heading3"),
+                p(QUALITY_NOTICE),
+            ]
+
         indexes = [0]
         if motion:
             indexes += [
-                e["index"]
-                for e in motion["phase_detection"]["events"]
-                if e["type"] == "maximum"
+                event["index"]
+                for event in motion["phase_detection"]["events"]
+                if event["type"] == "maximum"
             ][:2]
             flow.append(
                 p(
                     "Protocolo: "
-                    + motion["protocol"]
+                    + label(motion["protocol"])
                     + " · Resumo temporal das amostras válidas."
                 )
             )
@@ -259,10 +309,8 @@ def make_pdf(snapshot: dict, db) -> bytes:
                 continue
             image = Image(buffer)
             scale = min(15 * cm / image.imageWidth, 8 * cm / image.imageHeight)
-            image.drawWidth, image.drawHeight = (
-                image.imageWidth * scale,
-                image.imageHeight * scale,
-            )
+            image.drawWidth = image.imageWidth * scale
+            image.drawHeight = image.imageHeight * scale
             flow += [
                 image,
                 p(
@@ -274,28 +322,29 @@ def make_pdf(snapshot: dict, db) -> bytes:
             chart = motion_chart(analysis)
             if chart:
                 flow.append(chart)
+
         data = [[p("Medida"), p("Valor"), p("Visibilidade técnica")]]
-        for m in analysis["measurements"]:
+        for measurement in analysis["measurements"]:
             value = (
-                f"{m['value']:.1f} {m['unit']}"
-                if m["value"] is not None
+                f"{measurement['value']:.1f} {measurement['unit']}"
+                if measurement["value"] is not None
                 else "Não mensurável"
             )
-            if m["value"] is not None and "min" in m["details"]:
-                value += f" (média)\nMín. {m['details']['min']:.1f}\nMáx. {m['details']['max']:.1f}\nAmplitude {m['details']['amplitude']:.1f}"
-            data.append([p(m["label"]), p(value), p(f"{m['confidence'] * 100:.0f}%")])
-        table = Table(data, colWidths=[9 * cm, 3.5 * cm, 4 * cm], repeatRows=1)
-        table.setStyle(
-            TableStyle(
+            if measurement["value"] is not None and "min" in measurement["details"]:
+                value += (
+                    f" (média)\nMín. {measurement['details']['min']:.1f}"
+                    f"\nMáx. {measurement['details']['max']:.1f}"
+                    f"\nAmplitude {measurement['details']['amplitude']:.1f}"
+                )
+            data.append(
                 [
-                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E9F8F4")),
-                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
-                    ("LINEBELOW", (0, 0), (-1, -1), 0.3, colors.HexColor(GRAY)),
+                    p(measurement["label"]),
+                    p(value),
+                    p(f"{measurement['confidence'] * 100:.0f}%"),
                 ]
             )
-        )
-        flow.append(table)
+        flow.append(make_table(data, [9 * cm, 3.5 * cm, 4 * cm]))
+
         for message in (
             analysis["quality"]["messages"] + analysis["quality"]["limitations"]
         ):
@@ -308,28 +357,28 @@ def make_pdf(snapshot: dict, db) -> bytes:
             for review in finding["reviews"]:
                 flow.append(
                     p(
-                        review["created_at"]
+                        format_date(review["created_at"])
                         + " · "
                         + label(review["state"])
                         + " · "
                         + review["note"]
                     )
                 )
-        flow.append(
-            p(
-                "Versões: "
-                + analysis["provider_version"]
-                + " / Biomecânica "
-                + analysis["biomechanics_version"]
-                + " / Regras "
-                + analysis["rules_version"]
-            )
-        )
+        flow.append(p("Versão técnica: " + technical_version_label(analysis)))
+        pose_engine = pose_engine_label(analysis.get("provider_version"))
+        if pose_engine:
+            flow.append(p("Motor de pose: " + pose_engine))
+
     if snapshot.get("comparison"):
         comparison = snapshot["comparison"]
         flow += [
             p("Comparação longitudinal", "Heading2"),
-            p("A: " + comparison["date_a"] + " · B: " + comparison["date_b"]),
+            p(
+                "A: "
+                + format_date(comparison["date_a"])
+                + " · B: "
+                + format_date(comparison["date_b"])
+            ),
             p(comparison["notice"]),
         ]
         data = [[p("Medida"), p("A"), p("B"), p("B - A")]]
@@ -353,36 +402,34 @@ def make_pdf(snapshot: dict, db) -> bytes:
                     p(number(item["difference"])),
                 ]
             )
-        table = Table(data, colWidths=[7.5 * cm, 3 * cm, 3 * cm, 3 * cm], repeatRows=1)
-        table.setStyle(
-            TableStyle(
-                [
-                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E9F8F4")),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
-                ]
-            )
-        )
-        flow.append(table)
+        flow.append(make_table(data, [7.5 * cm, 3 * cm, 3 * cm, 3 * cm]))
+
     flow += [
         p("Observações do profissional", "Heading2"),
-        p(a["notes"] or "Não preenchidas."),
+        p(assessment["notes"] or "Não preenchidas."),
         p("Conclusão do fisioterapeuta", "Heading2"),
-        p(a["conclusion"] or "Não preenchida. Relatório sem conclusão profissional."),
+        p(
+            assessment["conclusion"]
+            or "Não preenchida. Relatório sem conclusão profissional."
+        ),
     ]
 
     if snapshot.get("is_demo"):
-        flow.insert(0, p("DEMONSTRAÇÃO — DADOS FICTÍCIOS", "Heading2"))
+        flow.insert(0, p("AMBIENTE DE DEMONSTRAÇÃO — DADOS FICTÍCIOS", "Heading2"))
 
     def footer(canvas, document):
         if snapshot.get("is_demo"):
             canvas.setFont("Manrope", 9)
             canvas.setFillColor(colors.HexColor(TEAL))
-            canvas.drawString(1.8 * cm, 1.4 * cm, "DEMONSTRAÇÃO — DADOS FICTÍCIOS")
+            canvas.drawString(
+                1.8 * cm, 1.4 * cm, "AMBIENTE DE DEMONSTRAÇÃO — DADOS FICTÍCIOS"
+            )
         canvas.setFont("Manrope", 8)
         canvas.setFillColor(colors.HexColor(NAVY))
         canvas.drawString(
-            1.8 * cm, cm, "KINUA | " + a["id"] + " | Página " + str(document.page)
+            1.8 * cm,
+            cm,
+            "KINUA | Relatório de avaliação | Página " + str(document.page),
         )
 
     doc.build(flow, onFirstPage=footer, onLaterPages=footer)
