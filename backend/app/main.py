@@ -38,6 +38,7 @@ from .core.security import (
     utc,
     verify_password,
 )
+from .report_brand import report_filename
 from .reports import make_pdf
 from .repositories import assessment_for, audit, patient_for
 from .services.analysis import analyze
@@ -373,7 +374,7 @@ def update_assessment(
             .where(m.Analysis.assessment_id == assessment.id)
         ).all()
         if not findings or any(
-            f.state in ("needs_review", "detected") for f in findings
+            finding.state in ("needs_review", "detected") for finding in findings
         ):
             raise HTTPException(
                 409, "Revise todos os registros de medida antes de concluir."
@@ -520,10 +521,11 @@ def report(
     db: DBSession = Depends(get_db),
 ):
     assessment = assessment_for(db, assessment_id, user)
+    patient = patient_for(db, assessment.patient_id, user)
     snapshot = {
         "is_demo": db.get(m.Clinic, user.clinic_id).is_demo,
         "assessment": assessment_result(db, assessment),
-        "patient": row(patient_for(db, assessment.patient_id, user)),
+        "patient": row(patient),
         "professional": db.get(m.User, assessment.created_by).name,
     }
     if snapshot["assessment"].get("assessment_protocol"):
@@ -565,12 +567,11 @@ def report(
     db.flush()
     audit(db, user, "report.generated", record.id)
     db.commit()
+    filename = report_filename(patient.name, assessment.created_at.isoformat())
     return Response(
         pdf,
         media_type="application/pdf",
-        headers={
-            "Content-Disposition": f'attachment; filename="avaliacao-{assessment.id}.pdf"'
-        },
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
@@ -582,8 +583,8 @@ def rules(user: m.User = Depends(current_user)):
 @app.get("/admin/audit")
 def audit_log(user: m.User = Depends(admin), db: DBSession = Depends(get_db)):
     return [
-        row(x)
-        for x in db.scalars(
+        row(item)
+        for item in db.scalars(
             select(m.AuditLog)
             .where(
                 m.AuditLog.clinic_id == user.clinic_id,
