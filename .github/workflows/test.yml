@@ -25,10 +25,16 @@ jobs:
         working-directory: backend
         env:
           TEST_DATABASE_URL: postgresql+psycopg://test:test-only-password@127.0.0.1:5432/biometria_test
+          KINUA_REPORT_ARTIFACT_DIR: test-output
       - run: python -m pytest -q
         working-directory: backend
         env:
           TEST_DATABASE_URL: postgresql+psycopg://test:test-only-password@127.0.0.1:5432/biometria_test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kinua-pdf-validation
+          path: backend/test-output/KINUA_Paciente_Teste_ROM.pdf
+          if-no-files-found: error
       - run: python -m alembic upgrade head && python -m alembic check && python -m alembic downgrade base && python -m alembic upgrade head
         working-directory: backend
         env:
