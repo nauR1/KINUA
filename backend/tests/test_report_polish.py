@@ -48,7 +48,7 @@ def test_basic_pdf_has_human_filename_and_no_assessment_uuid(auth):
 
 
 def test_rom_pdf_uses_human_labels_and_preserves_limitations(
-    auth, db, video, monkeypatch, catalog
+    auth, db, video, monkeypatch, catalog  # noqa: F811
 ):
     monkeypatch.setattr(jobs, "SessionLocal", db)
     p = patient(auth)
