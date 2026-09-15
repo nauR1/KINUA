@@ -416,14 +416,14 @@ def make_pdf(snapshot: dict, db) -> bytes:
     ]
 
     if snapshot.get("is_demo"):
-        flow.insert(0, p("AMBIENTE DE DEMONSTRAÇÃO · DADOS FICTÍCIOS", "Heading2"))
+        flow.insert(0, p("AMBIENTE DE DEMONSTRAÇÃO — DADOS FICTÍCIOS", "Heading2"))
 
     def footer(canvas, document):
         if snapshot.get("is_demo"):
             canvas.setFont("Manrope", 9)
             canvas.setFillColor(colors.HexColor(TEAL))
             canvas.drawString(
-                1.8 * cm, 1.4 * cm, "AMBIENTE DE DEMONSTRAÇÃO · DADOS FICTÍCIOS"
+                1.8 * cm, 1.4 * cm, "AMBIENTE DE DEMONSTRAÇÃO — DADOS FICTÍCIOS"
             )
         canvas.setFont("Manrope", 8)
         canvas.setFillColor(colors.HexColor(NAVY))
