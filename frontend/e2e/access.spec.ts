@@ -35,7 +35,7 @@ test("platform administration, trial, tenant workflow, suspension, expiry and ex
   ).toHaveCount(0);
   await page.getByRole("button", { name: "Clínicas", exact: true }).click();
   await page.getByLabel("Nome da clínica").fill(clinicName);
-  await page.getByLabel("Plano", { exact: true }).selectOption("lifetime");
+  await page.locator('select[name="plan_code"]').selectOption("lifetime");
   await page
     .getByRole("button", { name: "Salvar clínica", exact: true })
     .click();
