@@ -1,0 +1,96 @@
+name: Stage complete commercial flow
+
+on:
+  push:
+    branches: [kinua-commercial-flow-staging]
+
+jobs:
+  commercial-e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test-only-password
+          POSTGRES_DB: biometria_commercial_e2e
+        ports: ['5432:5432']
+        options: --health-cmd "pg_isready -U test -d biometria_commercial_e2e" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: kinua-commercial-flow-staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: pip install -r backend/requirements.txt
+      - run: sudo apt-get update && sudo apt-get install -y libgl1 libegl1 libgles2 libglib2.0-0 libportaudio2
+      - run: npm ci
+        working-directory: frontend
+      - name: Prepare browser vision assets
+        run: npm run prepare:vision
+        working-directory: frontend
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chrome
+        working-directory: frontend
+      - name: Download pinned official MediaPipe pose fixture
+        run: |
+          curl -fsSL 'https://raw.githubusercontent.com/google-ai-edge/mediapipe/4e0918204c227535a31e8a577377f394674eabbc/mediapipe/python/solutions/testdata/pose.jpg' -o /tmp/pose.jpg
+          test -s /tmp/pose.jpg
+          python - <<'PY'
+          from PIL import Image
+          image = Image.open('/tmp/pose.jpg')
+          image.verify()
+          print('Official MediaPipe pose fixture verified:', image.format)
+          PY
+      - name: Prepare server pose model
+        run: python -m app.vision.provider
+        working-directory: backend
+        env:
+          POSE_MODEL_PATH: /tmp/kinua-model/pose_landmarker_lite.task
+      - name: Migrate isolated database
+        run: python -m alembic upgrade head
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql+psycopg://test:test-only-password@127.0.0.1:5432/biometria_commercial_e2e
+      - name: Bootstrap isolated platform admin
+        run: python -m app.seed --platform-admin --email platform@kinua.local
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql+psycopg://test:test-only-password@127.0.0.1:5432/biometria_commercial_e2e
+          BOOTSTRAP_PASSWORD: Test-password-123
+      - name: Check commercial E2E formatting
+        run: npx prettier --check e2e/commercial-flow.spec.ts
+        working-directory: frontend
+      - name: Start isolated backend and frontend
+        run: |
+          mkdir -p /tmp/kinua-commercial-media
+          (cd backend && DATABASE_URL='postgresql+psycopg://test:test-only-password@127.0.0.1:5432/biometria_commercial_e2e' STORAGE_DIR='/tmp/kinua-commercial-media' POSE_MODEL_PATH='/tmp/kinua-model/pose_landmarker_lite.task' uvicorn app.main:app --host 127.0.0.1 --port 8000 > /tmp/kinua-backend.log 2>&1 &)
+          (cd frontend && BACKEND_URL='http://127.0.0.1:8000' npm run dev -- --port 3000 > /tmp/kinua-frontend.log 2>&1 &)
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:8000/health >/dev/null && curl -fsS http://127.0.0.1:3000/ >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/kinua-backend.log || true
+          cat /tmp/kinua-frontend.log || true
+          exit 1
+      - name: Complete commercial flow through real UI
+        run: npx playwright test e2e/commercial-flow.spec.ts
+        working-directory: frontend
+        env:
+          E2E_ISOLATED: '1'
+          E2E_PASSWORD: Test-password-123
+          E2E_BASE_URL: http://127.0.0.1:3000
+          E2E_IMAGE: /tmp/pose.jpg
+      - name: Service logs on failure
+        if: failure()
+        run: |
+          cat /tmp/kinua-backend.log || true
+          cat /tmp/kinua-frontend.log || true
