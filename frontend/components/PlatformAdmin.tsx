@@ -77,13 +77,13 @@ export function AccessBadge({
           ? "NÃO INICIADO"
           : !access.allowed
             ? "SUSPENSO"
-          : trial
-            ? "TESTE"
-            : unlimited
-              ? "ILIMITADO"
-              : access.days_remaining !== null && access.days_remaining <= 7
-                ? "VENCE EM BREVE"
-                : "ATIVO";
+            : trial
+              ? "TESTE"
+              : unlimited
+                ? "ILIMITADO"
+                : access.days_remaining !== null && access.days_remaining <= 7
+                  ? "VENCE EM BREVE"
+                  : "ATIVO";
   return (
     <span className={"access-badge " + (!access.allowed ? "blocked" : "")}>
       {label}
@@ -196,7 +196,9 @@ export function UserAccess({
             <option value="account_disabled">Usuários suspensos</option>
             <option value="user_access_expired">Expiração individual</option>
             <option value="subscription_expired">Assinatura expirada</option>
-            <option value="access_not_started">Acesso ainda não iniciado</option>
+            <option value="access_not_started">
+              Acesso ainda não iniciado
+            </option>
             <option value="clinic_suspended">Clínica suspensa</option>
           </select>
         </label>
