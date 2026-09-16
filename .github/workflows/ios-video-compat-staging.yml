@@ -1,0 +1,86 @@
+name: Stage iOS video compatibility
+
+on:
+  push:
+    branches: [kinua-ios-video-compat]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-test:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: kinua-ios-video-compat
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply compatibility patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          api = Path('backend/app/api_video.py')
+          text = api.read_text()
+          text = text.replace(
+              'if extension not in (".mp4", ".webm"):',
+              'if extension not in (".mp4", ".mov", ".webm"):',
+          ).replace(
+              'raise HTTPException(422, "Envie MP4 ou WebM.")',
+              'raise HTTPException(422, "Envie MP4, MOV ou WebM.")',
+          )
+          api.write_text(text)
+
+          vision = Path('backend/app/vision/video.py')
+          text = vision.read_text().replace(
+              'raise ValueError("Vídeo incompatível. Use MP4 ou WebM.")',
+              'raise ValueError("Vídeo incompatível. Use MP4, MOV ou WebM.")',
+          )
+          vision.write_text(text)
+
+          component = Path('frontend/components/VideoCapture.tsx')
+          text = component.read_text().replace(
+              'accept="video/mp4,video/webm,.mp4,.webm"',
+              'accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"',
+          )
+          component.write_text(text)
+
+          conftest = Path('backend/tests/conftest.py')
+          text = conftest.read_text()
+          marker = 'def mov_video(tmp_path):'
+          if marker not in text:
+              text += '''\n\n@pytest.fixture\ndef mov_video(tmp_path):\n    import cv2\n    import numpy as np\n\n    path = tmp_path / "iphone.mov"\n    writer = cv2.VideoWriter(\n        str(path), cv2.VideoWriter_fourcc(*"mp4v"), 10, (640, 480)\n    )\n    assert writer.isOpened()\n    for _ in range(20):\n        writer.write(np.full((480, 640, 3), 180, dtype=np.uint8))\n    writer.release()\n    return path\n'''
+              conftest.write_text(text)
+
+          tests = Path('backend/tests/test_video.py')
+          text = tests.read_text()
+          marker = 'def test_mov_container_upload_and_worker_pipeline('
+          if marker not in text:
+              text += '''\n\ndef test_mov_container_upload_and_worker_pipeline(\n    auth, db, mov_video, monkeypatch, landmarks\n):\n    monkeypatch.setattr(jobs, "SessionLocal", db)\n    p = patient(auth)\n    assessment = auth.post(\n        "/assessments",\n        json={\n            "patient_id": p["id"],\n            "kind": "movement",\n            "mode": "video",\n            "protocol": "bilateral_squat",\n        },\n    ).json()\n    uploaded = auth.post(\n        f"/assessments/{assessment['id']}/videos",\n        files={\n            "file": ("iphone.mov", mov_video.read_bytes(), "video/quicktime")\n        },\n        data={"view": "anterior"},\n    )\n    assert uploaded.status_code == 201, uploaded.text\n    assert probe(mov_video)["mime"] == "video/mp4"\n\n    queued = enqueue(auth, assessment, uploaded.json())\n    assert queued.status_code == 202, queued.text\n    job_id = queued.json()["id"]\n    assert jobs.claim() == job_id\n\n    class FixtureProvider:\n        version = "test-mov/1"\n\n        def detect(self, rgb, timestamp):\n            return [Landmark(**point) for point in landmarks]\n\n        def close(self):\n            pass\n\n    jobs.process_job(job_id, FixtureProvider)\n    result = auth.get("/assessments/" + assessment["id"]).json()\n    assert result["jobs"][0]["state"] == "succeeded"\n    assert len(result["analyses"][0]["frames"]) == 10\n'''
+              tests.write_text(text)
+          PY
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npx prettier --write components/VideoCapture.tsx
+        working-directory: frontend
+      - run: pip install -r backend/requirements.txt
+      - run: sudo apt-get update && sudo apt-get install -y libgl1 libegl1 libgles2 libglib2.0-0 libportaudio2
+      - name: Targeted MOV regression
+        run: python -m pytest -q tests/test_video.py
+        working-directory: backend
+      - name: Commit product changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add backend/app/api_video.py backend/app/vision/video.py backend/tests/conftest.py backend/tests/test_video.py frontend/components/VideoCapture.tsx
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'staging: add validated MOV compatibility'
+          git push origin HEAD:kinua-ios-video-compat
