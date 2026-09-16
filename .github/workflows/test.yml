@@ -4,35 +4,36 @@ permissions:
   contents: write
 
 jobs:
-  apply:
+  format:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: kinua-access-activation-staging
           fetch-depth: 0
-      - name: Apply access activation patch
-        run: python scripts/patch_access_activation.py
-      - name: Commit staged product changes
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - name: Format changed frontend files
+        run: npx prettier --write components/PlatformAdmin.tsx lib/access-datetime.ts tests/access-datetime.test.ts e2e/access.spec.ts
+        working-directory: frontend
+      - name: Commit formatting if needed
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add \
-            backend/app/core/access.py \
-            backend/app/models.py \
-            backend/app/api_admin.py \
-            backend/migrations/versions/9e160926_user_access_start.py \
-            backend/tests/test_access_admin.py \
-            frontend/lib/access-datetime.ts \
-            frontend/tests/access-datetime.test.ts \
-            frontend/components/PlatformAdmin.tsx \
-            frontend/e2e/access.spec.ts
-          git diff --cached --check
-          git commit -m "staging: apply new user access activation fix"
-          git push origin HEAD:kinua-access-activation-staging
+          git diff --check
+          if ! git diff --quiet -- frontend/components/PlatformAdmin.tsx frontend/lib/access-datetime.ts frontend/tests/access-datetime.test.ts frontend/e2e/access.spec.ts; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add frontend/components/PlatformAdmin.tsx frontend/lib/access-datetime.ts frontend/tests/access-datetime.test.ts frontend/e2e/access.spec.ts
+            git commit -m "staging: format access activation frontend"
+            git push origin HEAD:kinua-access-activation-staging
+          fi
 
   backend:
-    needs: apply
+    needs: format
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -67,7 +68,7 @@ jobs:
           DATABASE_URL: postgresql+psycopg://test:test-only-password@127.0.0.1:5432/biometria_test
 
   frontend:
-    needs: apply
+    needs: format
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -83,7 +84,7 @@ jobs:
       - name: Prepare vision assets
         run: npm run prepare:vision
         working-directory: frontend
-      - name: Format changed frontend files
+      - name: Format check changed frontend files
         run: npx prettier --check components/PlatformAdmin.tsx lib/access-datetime.ts tests/access-datetime.test.ts e2e/access.spec.ts
         working-directory: frontend
       - name: Typecheck
@@ -97,7 +98,7 @@ jobs:
         working-directory: frontend
 
   e2e:
-    needs: apply
+    needs: format
     runs-on: ubuntu-latest
     services:
       postgres:
