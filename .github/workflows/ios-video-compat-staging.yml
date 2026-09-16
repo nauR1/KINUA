@@ -94,3 +94,5 @@ jobs:
           if git diff --cached --quiet; then exit 0; fi
           git commit -m 'staging: add validated MOV compatibility'
           git push origin HEAD:kinua-ios-video-compat
+
+# Full-suite validation trigger after the product patch is committed.
