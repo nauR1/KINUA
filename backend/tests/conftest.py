@@ -131,3 +131,19 @@ def video(tmp_path):
         writer.write(np.full((480, 640, 3), 180, dtype=np.uint8))
     writer.release()
     return path
+
+
+@pytest.fixture
+def mov_video(tmp_path):
+    import cv2
+    import numpy as np
+
+    path = tmp_path / "iphone.mov"
+    writer = cv2.VideoWriter(
+        str(path), cv2.VideoWriter_fourcc(*"mp4v"), 10, (640, 480)
+    )
+    assert writer.isOpened()
+    for _ in range(20):
+        writer.write(np.full((480, 640, 3), 180, dtype=np.uint8))
+    writer.release()
+    return path

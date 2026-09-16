@@ -130,3 +130,47 @@ def test_video_validation_and_empty_detection(auth, db, video, monkeypatch):
     jobs.fail(job["id"], "Nenhum frame utilizável.")
     result = auth.get("/assessments/" + a["id"]).json()
     assert result["analyses"] == [] and result["jobs"][0]["state"] == "failed"
+
+
+def test_mov_container_upload_and_worker_pipeline(
+    auth, db, mov_video, monkeypatch, landmarks
+):
+    monkeypatch.setattr(jobs, "SessionLocal", db)
+    p = patient(auth)
+    assessment = auth.post(
+        "/assessments",
+        json={
+            "patient_id": p["id"],
+            "kind": "movement",
+            "mode": "video",
+            "protocol": "bilateral_squat",
+        },
+    ).json()
+    uploaded = auth.post(
+        f"/assessments/{assessment['id']}/videos",
+        files={
+            "file": ("iphone.mov", mov_video.read_bytes(), "video/quicktime")
+        },
+        data={"view": "anterior"},
+    )
+    assert uploaded.status_code == 201, uploaded.text
+    assert probe(mov_video)["mime"] == "video/mp4"
+
+    queued = enqueue(auth, assessment, uploaded.json())
+    assert queued.status_code == 202, queued.text
+    job_id = queued.json()["id"]
+    assert jobs.claim() == job_id
+
+    class FixtureProvider:
+        version = "test-mov/1"
+
+        def detect(self, rgb, timestamp):
+            return [Landmark(**point) for point in landmarks]
+
+        def close(self):
+            pass
+
+    jobs.process_job(job_id, FixtureProvider)
+    result = auth.get("/assessments/" + assessment["id"]).json()
+    assert result["jobs"][0]["state"] == "succeeded"
+    assert len(result["analyses"][0]["frames"]) == 10

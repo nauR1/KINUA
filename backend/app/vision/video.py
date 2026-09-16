@@ -39,7 +39,7 @@ def probe(path: Path) -> dict:
     elif header.startswith(b"\x1a\x45\xdf\xa3"):
         mime = "video/webm"
     else:
-        raise ValueError("Vídeo incompatível. Use MP4 ou WebM.")
+        raise ValueError("Vídeo incompatível. Use MP4, MOV ou WebM.")
     cap = cv2.VideoCapture(str(path))
     try:
         # MediaRecorder WebM may omit frame count and duration. Decode the bounded

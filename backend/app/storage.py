@@ -50,7 +50,7 @@ class LocalStorageProvider:
     def put(
         self, data: bytes, extension: str = ".jpg", prefix: str = "production/"
     ) -> tuple[str, str]:
-        if extension not in (".jpg", ".mp4", ".webm"):
+        if extension not in (".jpg", ".mp4", ".mov", ".webm"):
             raise ValueError("Extensão inválida")
         validate_prefix(prefix)
         key = prefix + str(uuid.uuid4()) + extension
@@ -160,7 +160,7 @@ class S3StorageProvider(LocalStorageProvider):
             self.temp = None
 
     def put(self, data, extension=".jpg", prefix="production/"):
-        if extension not in (".jpg", ".mp4", ".webm"):
+        if extension not in (".jpg", ".mp4", ".mov", ".webm"):
             raise ValueError("Extensão inválida")
         validate_prefix(prefix)
         key = prefix + str(uuid.uuid4()) + extension
@@ -257,7 +257,7 @@ def validate_prefix(prefix: str):
 
 def validate_storage_key(key: str):
     if not re.fullmatch(
-        r"(?:(?:production/)|(?:demo/[a-zA-Z0-9_-]+/))?[a-zA-Z0-9_-]+\.(jpg|mp4|webm)",
+        r"(?:(?:production/)|(?:demo/[a-zA-Z0-9_-]+/))?[a-zA-Z0-9_-]+\.(jpg|mp4|mov|webm)",
         key,
     ):
         raise ValueError("Chave de armazenamento inválida.")

@@ -46,8 +46,8 @@ def upload_video(
             422, "A vista lateral deve corresponder ao lado de apoio escolhido."
         )
     extension = Path(file.filename or "").suffix.lower()
-    if extension not in (".mp4", ".webm"):
-        raise HTTPException(422, "Envie MP4 ou WebM.")
+    if extension not in (".mp4", ".mov", ".webm"):
+        raise HTTPException(422, "Envie MP4, MOV ou WebM.")
     data = file.file.read(settings().max_video_bytes + 1)
     file.file.close()
     if len(data) > settings().max_video_bytes:
