@@ -13,6 +13,16 @@ export const metadata: Metadata = {
   title: "KINUA · Análise corporal inteligente",
   description: "Plataforma inteligente de análise corporal e movimento humano.",
   icons: { icon: "/favicon.svg", apple: "/brand/kinua-icon-180.png" },
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+    googleBot: {
+      index: false,
+      follow: false,
+      noimageindex: true,
+    },
+  },
 };
 export default function RootLayout({
   children,
