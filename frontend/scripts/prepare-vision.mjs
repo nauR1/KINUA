@@ -36,7 +36,7 @@ await writeFile(
     },
     null,
     2,
-  ),
+  ) + "\n",
 );
 await build({
   entryPoints: ["vision/pose.worker.ts"],
