@@ -292,7 +292,7 @@ export default function VideoCapture({
             Enviar vídeo
             <input
               type="file"
-              accept="video/mp4,video/webm,.mp4,.webm"
+              accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"
               disabled={busy || active || recording}
               onChange={(e) => {
                 if (e.target.files?.[0]) selectFile(e.target.files[0]);
