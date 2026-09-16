@@ -38,6 +38,9 @@ jobs:
           text = storage.read_text().replace(
               'extension not in (".jpg", ".mp4", ".webm")',
               'extension not in (".jpg", ".mp4", ".mov", ".webm")',
+          ).replace(
+              r'\.(jpg|mp4|webm)',
+              r'\.(jpg|mp4|mov|webm)',
           )
           storage.write_text(text)
 
