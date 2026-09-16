@@ -13,11 +13,13 @@ Serviços de aplicação:
 1. `frontend` — `infra/frontend.Dockerfile`, Node 22, Next.js standalone, uma réplica em `ams`, domínio público HTTPS, healthcheck `/`.
 2. `backend` — `infra/backend.Dockerfile`, Python 3.12, FastAPI/Uvicorn, uma réplica em `ams`, rede privada, pre-deploy `alembic upgrade head`, healthcheck `/health`.
 3. `worker` — mesmo Dockerfile do backend, start `python -m app.jobs`, uma réplica em `ams`, sem endpoint público.
-4. `postgres` — PostgreSQL 17 Alpine usado na infraestrutura de persistência/DR.
-5. `kinua-backup-once` — serviço PostgreSQL 17 Alpine com volume persistente e automação de restore/backup.
+4. `kinua-backup-once` — **apesar do nome histórico**, é o PostgreSQL persistente que atende o KINUA nesta topologia, baseado em PostgreSQL 17 Alpine, com volume `kinua-postgres-data` de 500 MB montado em `/var/lib/postgresql/data` e automação de restore/backup.
+5. `postgres` — PostgreSQL 17 Alpine auxiliar/disposable usado para ensaios de restauração/DR; não tratar este serviço como a fonte persistente principal sem revalidar a configuração.
 6. bucket `kinua-media` — storage compatível com S3, região `ams`.
 
 Frontend, backend e worker foram publicados no SHA `c21484f5ab07fdc9f9a8db61ba1e822d71f74e32` e ficaram `SUCCESS`.
+
+> **Atenção operacional:** os nomes `kinua-backup-once` e `postgres` não descrevem bem a função atual. Antes de qualquer manutenção de banco, confirme o volume montado e a `DATABASE_URL` do backend. Não reinicialize, restaure ou descarte um serviço apenas pelo nome exibido no Railway.
 
 ## Variáveis essenciais
 
@@ -84,6 +86,8 @@ Vídeo aceito: MP4, WebM ou MOV/QuickTime **quando o conteúdo é válido e deco
 
 O banco que atende o KINUA foi reiniciado em teste operacional; o volume foi remontado e os dados existentes foram reconhecidos sem reinicialização. O volume observado tinha 500 MB, com cerca de 0,111 GB usados na medição de 16/09/2026. Essa capacidade deve ser monitorada e ampliada antes de se aproximar do limite.
 
+Na topologia verificada, esse volume está ligado ao serviço `kinua-backup-once`. Esse nome é legado e deve ser considerado candidato a renomeação planejada, depois de conferir que automações/referências não dependem do nome.
+
 ## Backup e desastre
 
 O backup automático é executado diariamente às **06:15 UTC** e enviado ao S3 em formato custom do `pg_dump`, acompanhado de SHA-256.
@@ -117,6 +121,7 @@ O Compose permanece útil para desenvolvimento. A realidade de produção, poré
 - política de retenção e expurgo de backups;
 - alertas de disco, fila, falha de backup e erro 5xx;
 - separar ainda mais responsabilidades de banco persistente e automação de backup quando a escala exigir;
+- renomear serviços de banco de forma planejada para reduzir ambiguidade operacional;
 - teste de carga/concorrrência;
 - plano de incident response e rotação de segredos;
 - conferir periodicamente que todos os serviços estão no mesmo release esperado.
