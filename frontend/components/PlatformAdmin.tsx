@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { api, post } from "@/lib/api";
+import { toDatetimeLocal, toUtcIso } from "@/lib/access-datetime";
 import KinuaLogo from "./brand/KinuaLogo";
 type Access = {
   expires_at: string | null;
@@ -27,6 +28,7 @@ type Member = {
   role: string;
   clinic_id: string;
   is_active: boolean;
+  access_starts_at: string | null;
   access_expires_at: string | null;
   last_login_at: string | null;
   access: Access;
@@ -53,14 +55,8 @@ const statusLabels: Record<string, string> = {
 };
 const dateLabel = (v: string | null) =>
   v ? new Date(v).toLocaleString("pt-BR") : "Sem expiração";
-const inputDate = (v: string | null) =>
-  v
-    ? new Date(new Date(v).getTime() - new Date(v).getTimezoneOffset() * 60000)
-        .toISOString()
-        .slice(0, 16)
-    : "";
-const iso = (v: FormDataEntryValue | null) =>
-  v ? new Date(String(v)).toISOString() : null;
+const inputDate = toDatetimeLocal;
+const iso = toUtcIso;
 const patch = (path: string, body: unknown) =>
   api(path, { method: "PATCH", body: JSON.stringify(body) });
 export function AccessBadge({
@@ -77,8 +73,10 @@ export function AccessBadge({
       ? "CANCELADO"
       : access.code?.includes("expired")
         ? "EXPIRADO"
-        : !access.allowed
-          ? "SUSPENSO"
+        : access.code === "access_not_started"
+          ? "NÃO INICIADO"
+          : !access.allowed
+            ? "SUSPENSO"
           : trial
             ? "TESTE"
             : unlimited
@@ -143,6 +141,7 @@ export function UserAccess({
         await patch(base + "/" + selected.id, {
           role: f.get("role"),
           is_active: f.get("is_active") === "true",
+          access_starts_at: iso(f.get("access_starts_at")),
           access_expires_at: iso(f.get("access_expires_at")),
           suspension_reason: f.get("suspension_reason") || null,
         });
@@ -152,6 +151,9 @@ export function UserAccess({
           email: f.get("email"),
           password: f.get("password"),
           role: f.get("role"),
+          is_active: true,
+          access_starts_at: iso(f.get("access_starts_at")),
+          access_expires_at: iso(f.get("access_expires_at")),
           ...(platform ? { clinic_id: f.get("clinic_id") } : {}),
         });
       }
@@ -194,6 +196,7 @@ export function UserAccess({
             <option value="account_disabled">Usuários suspensos</option>
             <option value="user_access_expired">Expiração individual</option>
             <option value="subscription_expired">Assinatura expirada</option>
+            <option value="access_not_started">Acesso ainda não iniciado</option>
             <option value="clinic_suspended">Clínica suspensa</option>
           </select>
         </label>
@@ -293,6 +296,22 @@ export function UserAccess({
               )}
             </select>
           </label>
+          <label>
+            Início individual (vazio segue clínica)
+            <input
+              name="access_starts_at"
+              type="datetime-local"
+              defaultValue={inputDate(selected?.access_starts_at || null)}
+            />
+          </label>
+          <label>
+            Expiração individual (vazio segue clínica)
+            <input
+              name="access_expires_at"
+              type="datetime-local"
+              defaultValue={inputDate(selected?.access_expires_at || null)}
+            />
+          </label>
           {selected && (
             <>
               <label>
@@ -304,14 +323,6 @@ export function UserAccess({
                   <option value="true">Ativo</option>
                   <option value="false">Suspenso</option>
                 </select>
-              </label>
-              <label>
-                Expiração individual (vazio segue clínica)
-                <input
-                  name="access_expires_at"
-                  type="datetime-local"
-                  defaultValue={inputDate(selected.access_expires_at)}
-                />
               </label>
               <label>
                 Motivo da suspensão

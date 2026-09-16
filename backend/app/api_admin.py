@@ -56,6 +56,7 @@ class Extension(Input):
 
 class UserPatch(Input):
     is_active: bool | None = None
+    access_starts_at: AwareDatetime | None = None
     access_expires_at: AwareDatetime | None = None
     suspension_reason: str | None = Field(None, max_length=2000)
     role: Role | None = None
@@ -69,6 +70,9 @@ class UserCreate(Input):
     password: str = Field(min_length=12, max_length=128)
     role: Role = "physiotherapist"
     clinic_id: str | None = None
+    is_active: bool = True
+    access_starts_at: AwareDatetime | None = None
+    access_expires_at: AwareDatetime | None = None
 
 
 def event(db, actor, action, target, changes=None):
@@ -94,6 +98,7 @@ def user_view(u, clinic):
         "email",
         "role",
         "is_active",
+        "access_starts_at",
         "access_expires_at",
         "suspended_at",
         "suspension_reason",
@@ -194,9 +199,11 @@ def create_clinic(
 ):
 
     data = body.model_dump(exclude_unset=True)
+    if data.get("plan_code") == "lifetime":
+        data["access_expires_at"] = None
     start = data.get("access_starts_at")
     end = data.get("access_expires_at")
-    if start and end and start >= end:
+    if start and end and utc(start) >= utc(end):
         raise HTTPException(422, "Início deve anteceder vencimento.")
     c = m.Clinic(**data)
     db.add(c)
@@ -225,6 +232,8 @@ def update_clinic(
     c = lock_clinic(db, identifier)
     before = c.is_active and c.subscription_status not in ("suspended", "cancelled")
     data = body.model_dump(exclude_unset=True)
+    if data.get("plan_code", c.plan_code) == "lifetime":
+        data["access_expires_at"] = None
     start = data.get("access_starts_at", c.access_starts_at)
     end = data.get("access_expires_at", c.access_expires_at)
     if start and end and utc(start) >= utc(end):
@@ -276,13 +285,17 @@ def extend(
 ):
 
     c = lock_clinic(db, identifier)
-    base = m.now() if body.trial else max(m.now(), utc(c.access_expires_at) or m.now())
-    c.access_expires_at = base + timedelta(days=7 if body.trial else body.days)
-    c.access_starts_at = m.now() if body.trial else c.access_starts_at
+    if body.trial:
+        c.access_expires_at = m.now() + timedelta(days=7)
+        c.access_starts_at = m.now()
+        c.plan_code = "trial"
+    elif c.plan_code == "lifetime":
+        c.access_expires_at = None
+    else:
+        base = max(m.now(), utc(c.access_expires_at) or m.now())
+        c.access_expires_at = base + timedelta(days=body.days)
     c.is_active = True
     c.subscription_status = "trial" if body.trial else "active"
-    if body.trial:
-        c.plan_code = "trial"
     c.suspended_at = None
     c.suspension_reason = None
     event(
@@ -292,7 +305,9 @@ def extend(
         c.id,
         {
             "days": 7 if body.trial else body.days,
-            "expires_at": c.access_expires_at.isoformat(),
+            "expires_at": c.access_expires_at.isoformat()
+            if c.access_expires_at
+            else None,
         },
     )
     db.commit()
@@ -350,15 +365,25 @@ def create_user(
     clinic = lock_clinic(db, body.clinic_id or actor.clinic_id)
     if clinic.is_demo and body.role == "platform_admin":
         raise HTTPException(403, "Administrador global não pertence à demonstração.")
-    check_capacity(db, clinic)
+    if body.is_active:
+        check_capacity(db, clinic)
     if db.scalar(select(m.User.id).where(m.User.email == body.email.lower())):
         raise HTTPException(409, "Não foi possível cadastrar este e-mail.")
+    if (
+        body.access_starts_at
+        and body.access_expires_at
+        and utc(body.access_starts_at) >= utc(body.access_expires_at)
+    ):
+        raise HTTPException(422, "Início deve anteceder vencimento.")
     u = m.User(
         name=body.name,
         email=body.email.lower(),
         role=body.role,
         clinic_id=clinic.id,
         password_hash=hasher.hash(body.password),
+        is_active=body.is_active,
+        access_starts_at=body.access_starts_at,
+        access_expires_at=body.access_expires_at,
     )
     db.add(u)
     db.flush()
@@ -414,9 +439,14 @@ def update_user(
         raise HTTPException(403, "Administrador global não pertence à demonstração.")
     if body.is_active is True and not u.is_active:
         check_capacity(db, clinic, u.id)
+    data = body.model_dump(exclude_unset=True)
+    start = data.get("access_starts_at", u.access_starts_at)
+    end = data.get("access_expires_at", u.access_expires_at)
+    if start and end and utc(start) >= utc(end):
+        raise HTTPException(422, "Início deve anteceder vencimento.")
     old_active = u.is_active
     old_role = u.role
-    for key, value in body.model_dump(exclude_unset=True).items():
+    for key, value in data.items():
         setattr(u, key, value)
     u.suspended_at = None if u.is_active else m.now()
     if u.is_active:
