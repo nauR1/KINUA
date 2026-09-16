@@ -34,6 +34,13 @@ jobs:
           )
           api.write_text(text)
 
+          storage = Path('backend/app/storage.py')
+          text = storage.read_text().replace(
+              'extension not in (".jpg", ".mp4", ".webm")',
+              'extension not in (".jpg", ".mp4", ".mov", ".webm")',
+          )
+          storage.write_text(text)
+
           vision = Path('backend/app/vision/video.py')
           text = vision.read_text().replace(
               'raise ValueError("Vídeo incompatível. Use MP4 ou WebM.")',
@@ -80,7 +87,7 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add backend/app/api_video.py backend/app/vision/video.py backend/tests/conftest.py backend/tests/test_video.py frontend/components/VideoCapture.tsx
+          git add backend/app/api_video.py backend/app/storage.py backend/app/vision/video.py backend/tests/conftest.py backend/tests/test_video.py frontend/components/VideoCapture.tsx
           if git diff --cached --quiet; then exit 0; fi
           git commit -m 'staging: add validated MOV compatibility'
           git push origin HEAD:kinua-ios-video-compat
