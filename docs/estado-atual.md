@@ -1,119 +1,114 @@
-# KINUA 2.3.0 — documentação atual do sistema
+# Estado atual — KINUA 2.3.0
 
-Referência: auditoria de 14/09/2026 (Bahia). Este documento descreve o código e as evidências disponíveis; não representa uma nova verificação do ambiente online.
+**Consolidação:** 16/09/2026  
+**SHA de aplicação verificado em produção:** `c21484f5ab07fdc9f9a8db61ba1e822d71f74e32`  
+**Ambiente:** Railway `production`
 
-## Comece por aqui
+Este documento é a referência atual do sistema. Auditorias e release notes mais antigas são evidências históricas e não devem ser usadas isoladamente para inferir o estado presente.
 
-- Clientes e profissionais: [tutorial de uso](tutorial-clientes.md).
-- Instalação e comandos: [README](../README.md).
-- Evidências: [auditoria online](final-online-readiness-audit.md) e [matriz de testes](final-online-test-matrix.md).
-- Operação: [implantação](deployment.md), [acessos](access-control.md) e [backup e recuperação](backup-recovery.md).
+## Resumo executivo
 
-## Finalidade e limites
+KINUA é uma plataforma web para apoio à avaliação fisioterapêutica, com cadastro de pacientes, foto/câmera/vídeo, landmarks, medições geométricas, análise temporal, Protocolos, ROM, revisão profissional, histórico e PDF. A plataforma também possui administração comercial, planos, expiração/suspensão, ambiente demo isolado e auditoria.
 
-KINUA organiza avaliações corporais, estima landmarks e calcula medidas geométricas para apoiar o fisioterapeuta. A medição objetiva é separada da interpretação profissional. O sistema não fornece diagnóstico automático; testes de software não validam precisão clínica.
+A infraestrutura essencial de produção está operacional e foi ensaiada: frontend, backend, worker, PostgreSQL persistente e bucket S3 estão ativos; o banco sobreviveu a restart; backup real foi enviado ao S3; um PostgreSQL auxiliar descartável restaurou o backup do zero e recuperou 28 tabelas com Alembic `9e1609260000`.
 
-A versão permanece **2.3.0**. Não há liberação para uso assistencial com dados reais com base na auditoria atual. Persistência e recuperação de dados precisam ser comprovadas, e os fluxos online de vídeo e ROM precisam ser corrigidos e retestados.
+**Isso não equivale a validação clínica ou liberação regulatória.** A precisão clínica, confiabilidade contra padrão de referência, enquadramento regulatório, governança LGPD e matriz física de dispositivos permanecem trabalhos separados.
 
-## Código disponível versus ambiente online
+## Produção verificada
 
-| Área | Implementação | Última evidência online |
-| --- | --- | --- |
-| Acesso e administração | Sessões, perfis, planos, expiração, suspensão e auditoria | Fluxos com contas sintéticas passaram, com limites descritos na auditoria |
-| Pacientes e isolamento | Cadastro, edição e escopo por clínica | Cadastro, histórico e isolamento entre duas clínicas QA passaram |
-| Foto | Inferência real no navegador, medidas, revisão e PDF | Fluxo completo com imagem sintética passou |
-| Câmera | Skeleton, captura e salvamento | Passou com câmera virtual; hardware físico não validado |
-| Protocolos | Catálogo versionado, etapas, autosave, capturas e relatório | Falha de seleção sob latência; correção local ainda não publicada. Etapa ROM bloqueada |
-| ROM | Sete movimentos, lado/plano, série temporal, revisão e histórico | Criação passou; processamento falhou |
-| Vídeo | Upload/gravação, fila, worker e análise temporal | Jobs terminaram com falha no início; causa ainda não comprovada |
-| Demo | Tenant separado, banner, seed/reset e PDF marcado | Testes locais passaram; login demo online não verificado nesta auditoria |
-| Relatórios | PDF com revisão e conclusão | Foto passou. Ajustes locais de apresentação ainda não publicados |
-| Persistência e backup | Procedimento documentado | Volume efetivo e restauração não comprovados |
+| Componente | Estado em 16/09/2026 | Observação |
+|---|---|---|
+| Frontend | SUCCESS | Next.js standalone, healthcheck `/` |
+| Backend | SUCCESS | FastAPI, healthcheck `/health` aprovado |
+| Worker | SUCCESS | Python/MediaPipe/OpenCV, storage S3 |
+| PostgreSQL persistente | SUCCESS | volume persistente validado após restart |
+| PostgreSQL auxiliar | SUCCESS no drill | usado apenas como ambiente descartável de restauração |
+| Bucket `kinua-media` | ativo | put/get/delete/cleanup reais aprovados |
+| Backup | PASS | diário às 06:15 UTC + validação imediata |
+| Restore drill | PASS | 28 tabelas, migration `9e1609260000` |
+| GitHub Actions | SUCCESS | workflow normal da `main` |
 
-O endereço verificado na auditoria foi [KINUA online](https://frontend-production-1acc.up.railway.app/). Localhost aponta para a instalação do próprio computador; dados locais e online não são sincronizados automaticamente.
+Configuração de produção confirmada: `ENVIRONMENT=production`, `SECURE_COOKIES=true`, `ALLOW_DEMO_SEED=false`, `STORAGE_BACKEND=s3`. `DEMO_PASSWORD` não é usada como segredo de runtime para recriar conta automaticamente.
 
-## Arquitetura
+## Migration head
 
-```text
-Navegador — Next.js / React / TypeScript
-  ├─ câmera/foto → MediaPipe em Web Worker → landmarks
-  └─ /api → proxy Next.js → FastAPI
-                            ├─ autorização e escopo da clínica
-                            ├─ PostgreSQL: registros e rastreabilidade
-                            ├─ StorageProvider: mídia privada local ou S3
-                            ├─ geometria → achados → revisão profissional
-                            └─ fila de vídeo → worker Python / MediaPipe
-```
+Head esperado: **`9e1609260000`** (`9e160926_user_access_start.py`).
 
-- `frontend/`: interface, proxy, captura, provider de pose e testes de navegador.
-- `backend/app/biomechanics/`: cálculos independentes dos componentes visuais.
-- `backend/app/clinical/`: regras transparentes e versionadas; referências pendentes não viram diagnóstico.
-- `backend/app/services/`: processamento e snapshots de resultados.
-- `backend/app/storage.py`: abstração para arquivos fora do banco relacional.
-- `backend/migrations/`: histórico Alembic; head esperado `8d402b230000`, incluindo `7c301a230000`.
-- `infra/` e `compose.yaml`: execução dos serviços.
+A migration adiciona `users.access_starts_at` nullable. `NULL` significa herança da janela da clínica. Não há backfill destrutivo.
 
-Cada análise registra versões dos motores e do provider. A revisão registra autoria e data. Avaliações concluídas são imutáveis; uma nova avaliação registra a evolução sem reescrever resultados anteriores.
+## Acesso comercial
 
-## Perfis e dados
+- Papéis: `platform_admin`, `admin`, `physiotherapist`.
+- Planos: trial, monthly, quarterly, annual, custom, lifetime.
+- `platform_admin` não recebe acesso clínico por ser global.
+- Usuário sem override herda a janela da clínica.
+- Usuário com início explícito futuro recebe `access_not_started`.
+- Lifetime não expira; `access_expires_at` da clínica fica `NULL`.
+- Suspensão/expiração revogam ou bloqueiam acesso conforme política do backend.
+- Timestamps são normalizados em UTC; o frontend envia `null` quando o campo individual está vazio.
 
-| Perfil | Responsabilidade |
-| --- | --- |
-| Administrador global (`platform_admin`) | Administração comercial e acessos; não recebe acesso automático aos prontuários |
-| Administrador da clínica (`admin`) | Operação clínica e gestão de usuários da própria clínica |
-| Fisioterapeuta (`physiotherapist`) | Pacientes, avaliações, revisão e relatórios no escopo autorizado |
+## Funcionalidades e evidência atual
 
-A demonstração usa clínica identificada como demo, separada dos demais tenants. Não se deve transformar uma clínica real em ambiente de testes. O portal do paciente não está implementado.
+| Área | Estado | Limite principal |
+|---|---|---|
+| Login/sessão/logout | implementado/testado | sem MFA e sem self-service de senha |
+| Isolamento por clínica | testado | não há isolamento por profissional dentro da mesma clínica |
+| Pacientes/histórico | implementado | paginação ainda limitada |
+| Foto/webcam | implementado | hardware físico não coberto por matriz ampla |
+| Vídeo | implementado | MP4/WebM/MOV decodificáveis; HEVC físico de iPhone ainda exige ensaio |
+| Worker | implementado/produção | carga concorrente ainda não caracterizada |
+| Protocolos | implementado | validação clínica por protocolo pendente |
+| ROM | implementado | não substitui goniometria/3D sem validação |
+| Revisão/PDF | implementado | decisão final permanece profissional |
+| Demo | isolado | não inserir dados reais |
+| Administração comercial | implementada | sem gateway/billing automático |
+| Backup/restore | ensaiado | ainda faltam metas formais de RPO/RTO e retenção |
 
-Senhas são armazenadas como hash, não como texto. Sessões, bloqueio por tentativas, expiração e autorização atuam no backend. A auditoria verificou cookies Secure, HttpOnly e SameSite Strict no ambiente online e recusas de acesso cruzado. Isso não comprova conformidade integral de segurança ou LGPD.
+## Visão computacional
 
-Não versionar `.env`, credenciais, arquivos `ACESSO*`, bancos QA/SQLite, dumps, backups, mídia ou evidências privadas. Logs e suporte não devem conter senhas, cookies ou prontuários. A conta temporária da auditoria foi desativada após os testes.
+Frontend: `@mediapipe/tasks-vision 0.10.32`.  
+Backend: `mediapipe 0.10.35`.  
+Modelo em ambos: `pose_landmarker_lite/float16/1`.  
+SHA-256: `59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a`.
 
-## Instalação e verificação técnica
+O modelo é o mesmo, mas as bibliotecas de runtime não têm a mesma versão. Manter matriz de compatibilidade e regressão antes de atualizar qualquer lado.
 
-Siga o [README](../README.md) para Docker Compose ou Windows/local. Ele contém requisitos, exemplos de configuração e comandos completos. O Compose está configurado, mas não foi executado na máquina da última auditoria.
+## Segurança e privacidade
 
-Sequência de atualização: backup consistente e verificável; aguardar jobs; parar workers antigos; aplicar migrations uma única vez; verificar esquema; iniciar API e worker compatíveis; reconstruir frontend; testar login e um fluxo sintético. Não executar downgrade ou testes destrutivos no banco da clínica.
+Implementado: Argon2, sessão opaca hash no banco, cookies HttpOnly/Secure/SameSite Strict em produção, CORS/origin restritos, isolamento por clínica, storage privado, limites de upload, auditoria, containers sem root, API/banco sem exposição pública deliberada, `robots.txt` com `Disallow: /` e `X-Robots-Tag: noindex,nofollow,...`.
 
-No backend, com ambiente e banco corretos:
+Pendências prioritárias: repositório GitHub ainda público, `main` sem branch protection, recuperação de senha, MFA, pentest externo, monitoramento/alertas, política formal de retenção/incident response e avaliação LGPD/transferência internacional.
 
-```sh
-python -m alembic current
-python -m alembic heads
-python -m alembic check
-```
+## Testes
 
-Em ambiente exclusivamente de QA:
+No SHA `c21484f5...`, GitHub Actions concluiu com sucesso. A suíte backend corrente tem **218 testes** e Alembic round-trip/check aprovados. Frontend passou `prepare:vision`, TypeScript, lint/Prettier, unit tests e build de produção. Há E2E separados para acesso, demo, workflow clínico, vídeo, protocolos/ROM, câmera simulada e autosave.
 
-```sh
-python -m pytest -q
-python -m ruff check app tests migrations
-```
+Resultados numéricos de documentos antigos devem ser lidos como históricos.
 
-No frontend:
+## O que foi comprovado desde auditorias anteriores
 
-```sh
-npm ci
-npm run typecheck
-npm test
-npm run lint
-npm run build
-```
+Itens antes listados como pendentes e hoje comprovados tecnicamente:
 
-O E2E depende de backend, frontend, worker, credenciais sintéticas e mídia de teste. Consulte as variáveis do README antes de `npm run test:e2e`. Nunca aponte a suíte de escrita para a clínica real. Um teste ignorado por falta de configuração não equivale a aprovação.
+- deploy Railway real;
+- S3 real com leitura/escrita/exclusão;
+- worker usando `backend=s3`;
+- persistência do PostgreSQL após restart;
+- backup automático real;
+- restauração completa em banco descartável;
+- vídeo/worker novamente funcional em produção;
+- compatibilidade MOV/QuickTime validada no pipeline real de testes;
+- `robots/noindex` publicado;
+- CI principal verde.
 
-## Resultados existentes e pendências
+## Pendências reais
 
-Na última auditoria, passaram 210 testes SQLite, 210 PostgreSQL, seis testes unitários frontend e 16 E2E locais: **442 testes locais**, sem ignorados. No ambiente online, quatro dos sete E2E passaram e três falharam. Ruff, tipagem, build e verificação de migrations locais passaram. Esses resultados são históricos, não foram reexecutados para esta atualização documental.
-
-Correções de seleção de paciente em Protocolos/ROM e apresentação de PDF estavam somente no código local ao encerrar a auditoria. Não presumir que estão online. A [auditoria completa](final-online-readiness-audit.md) registra os SHAs observados por serviço.
-
-Antes de liberar o ambiente:
-
-1. Identificar a falha do worker com diagnóstico sem dados sensíveis e obter processamento de vídeo/ROM aprovado online.
-2. Comprovar volume do PostgreSQL, armazenamento compartilhado privado de mídia e restauração em ambiente isolado.
-3. Publicar as correções aprovadas pelo processo de release e conferir versões dos serviços.
-4. Repetir os três E2E online que falharam e validar demo com conta própria.
-5. Testar câmera física e dispositivos pretendidos; concluir validação clínica e governança de uso com o responsável profissional.
-
-Consulte [validação clínica proposta](clinical-validation-protocol.md), [métodos biomecânicos](biomechanics.md), [regras clínicas](clinical-engine.md), [ROM](rom.md), [protocolos](protocols.md) e [privacidade](privacy-security.md) para detalhes. A existência de um procedimento não significa que ele já foi executado.
+1. validação clínica quantitativa por medida/movimento/protocolo;
+2. avaliação regulatória formal e finalidade de uso;
+3. governança LGPD e contratos/processos operacionais;
+4. tornar repositório privado e proteger `main`;
+5. recuperação de senha e MFA;
+6. teste físico estruturado em iPhone/Android, incluindo HEVC/H.265;
+7. carga, concorrência, observabilidade e alertas;
+8. pentest autorizado;
+9. definir e medir RPO/RTO, retenção e política de backups;
+10. manter documentação e matriz de versões sincronizadas com cada release.

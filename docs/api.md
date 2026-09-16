@@ -1,72 +1,77 @@
-# API
+# API — KINUA 2.3.0
 
-Documentação interativa: `http://127.0.0.1:8000/docs` na execução local. OpenAPI: `/openapi.json`. No Docker a API é interna, acessível pelo frontend em `/api/*`.
+Documentação interativa local: `http://127.0.0.1:8000/docs`. OpenAPI: `/openapi.json`. Em produção a API é consumida pelo frontend via `/api/*` e não precisa de domínio público.
 
-Todos os recursos clínicos exigem cookie `biometria_session`. Requisições POST/PATCH/DELETE precisam de `X-Requested-With: Biometria` e Origin permitido quando presente. Nunca enviar senha ou cookie em URL.
+Recursos clínicos exigem cookie `biometria_session`. Mutações exigem `X-Requested-With: Biometria` e Origin permitido quando presente.
+
+## Rotas principais
 
 | Método | Rota | Função |
 |---|---|---|
-| POST | /auth/login | Cria sessão opaca |
-| GET | /auth/me | Usuário e clínica |
-| POST | /auth/logout | Revoga sessão atual |
-| GET | /dashboard | Indicadores reais da clínica |
-| GET, POST | /patients | Lista/busca e cadastro |
-| PATCH | /patients/{id} | Atualiza paciente com auditoria |
-| GET | /patients/{id}/assessments | Histórico |
-| POST | /assessments | Cria avaliação |
-| GET, PATCH | /assessments/{id} | Snapshot e notas/conclusão |
-| POST | /assessments/{id}/media | Multipart file + view |
-| POST | /assessments/{id}/videos | MP4/WebM + view; validação antes de enfileirar |
-| POST | /assessments/{id}/jobs | Cria/reenvia job de vídeo |
-| GET | /assessments/{id}/jobs | Estado e progresso persistidos |
-| POST | /jobs/{id}/cancel | Cancela fila/processamento, sem publicar parcialmente |
-| GET | /comparisons?a={analysis_id}&b={analysis_id} | Diferenças B − A quando compatíveis |
-| GET | /media/{id} | Imagem autenticada |
-| POST | /assessments/{id}/analyze | Landmarks, versão e confirmações → medidas |
-| POST | /findings/{id}/review | Confirma, descarta ou reabre revisão |
-| GET | /assessments/{id}/report | Gera PDF e registra snapshot/auditoria |
-| GET | /settings/rules | Definições das regras |
-| GET | /admin/audit | Últimas 200 ações da clínica |
-| GET, POST | /admin/users | Lista/cria profissionais da clínica |
-| GET | /health | Conectividade com banco |
+| POST | `/auth/login` | cria sessão opaca |
+| GET | `/auth/me` | usuário/tenant atual |
+| POST | `/auth/logout` | revoga sessão atual |
+| GET | `/dashboard` | indicadores da clínica |
+| GET, POST | `/patients` | busca/lista e cadastro |
+| PATCH | `/patients/{id}` | edição com concorrência otimista |
+| GET | `/patients/{id}/assessments` | histórico |
+| POST | `/assessments` | cria avaliação |
+| GET, PATCH | `/assessments/{id}` | snapshot/notas/conclusão |
+| POST | `/assessments/{id}/media` | imagem + vista |
+| POST | `/assessments/{id}/videos` | MP4/WebM/MOV validado + vista |
+| POST | `/assessments/{id}/jobs` | cria/reenvia job |
+| GET | `/assessments/{id}/jobs` | estado/progresso |
+| POST | `/jobs/{id}/cancel` | cancela tentativa |
+| GET | `/comparisons` | comparação compatível |
+| GET | `/media/{id}` | mídia autenticada |
+| POST | `/assessments/{id}/analyze` | landmarks → análise |
+| POST | `/findings/{id}/review` | revisão profissional |
+| GET | `/assessments/{id}/report` | PDF/snapshot |
+| GET | `/settings/rules` | regras configuradas |
+| GET | `/admin/audit` | auditoria do tenant |
+| GET, POST | `/admin/users` | equipe da clínica |
+| GET, POST | `/platform/users` | usuários globais/comerciais |
+| GET, POST | `/platform/clinics` | clínicas/planos |
+| PATCH | `/platform/users/{id}` | estado, papel e janela individual |
+| PATCH | `/platform/clinics/{id}` | estado/plano/janela da clínica |
+| POST | `/platform/clinics/{id}/extend` | trial/extensão |
+| GET | `/health` | API + banco |
 
-## Contrato da análise
-`media_id`, `provider`, `provider_version`, `landmarks: [{name,x,y,z,visibility}]`, `timestamp_ms`, `camera_level_confirmed`, `view_confirmed`.
+## Mídia
 
-As dimensões e a vista vêm da mídia persistida; valores de medida enviados pelo cliente são rejeitados. Cada mídia recebe uma única análise. Repetição retorna 409. Por padrão os parâmetros não confirmados bloqueiam medidas, com motivos registrados. View: `anterior`, `posterior`, `lateral_right`, `lateral_left`.
+Fotos: JPEG/PNG/WebP, limite padrão 20 MB e validação de conteúdo/dimensões.  
+Vídeos: MP4/WebM/MOV (QuickTime), até 100 MiB e 60 s, desde que assinatura/conteúdo/decoder sejam aceitos. A extensão sozinha não concede confiança.
 
-Respostas: 401 sem sessão; 403 permissão/origem; 404 recurso não acessível (incluindo outra clínica); 409 estado imutável/conflito; 413 tamanho; 422 validação; 429 tentativas de login.
+MOV foi adicionado para compatibilidade com arquivos de biblioteca iOS. HEVC/H.265 continua dependente da capacidade do decoder e precisa de teste em dispositivos reais.
 
-Fotos até 20 MB e 20 megapixels; formato real JPEG, PNG ou WebP. Na interface fotos são redimensionadas para até 1920 px antes do envio. Vídeos até 100 MiB e 60 segundos, MP4/WebM decodificável e timestamps monotônicos.
+## Análise estática
 
-## Vídeo e evolução
+Contrato inclui `media_id`, provider/versão, 33 landmarks canônicos, timestamp e confirmações de câmera/vista. Medidas prontas enviadas pelo cliente não são aceitas como fonte de verdade. Mídia/análise ficam vinculadas ao tenant.
 
-Criação: `mode: video`, `protocol: bilateral_squat | single_leg_squat | arm_raise`, `side: bilateral | left | right`. Unipodal exige left/right. Foto/câmera estática usa `protocol: static`.
+## Vídeo
 
-Job: `{media_id, fps: 2 | 5 | 10, camera_level_confirmed: true, view_confirmed: true}`. Resposta 202; estados pending/running/succeeded/failed/cancelled. Jobs concluídos não aceitam reprocessamento. Falhas e cancelamentos aceitam nova tentativa. O endpoint de landmarks estáticos recusa vídeo.
+Jobs têm estados `pending`, `running`, `succeeded`, `failed`, `cancelled`. `run_token` identifica cada tentativa e impede que um worker/tentativa antiga publique resultado após cancelamento/retry.
 
-Snapshot: `jobs`, `analyses[].motion` e `frames[].measurements/phase/quality`, além dos landmarks. Séries preservam null; `frame_index` é o índice original decodificado, `timestamp_ms` o tempo original e `sample_index` a posição na lista amostrada.
+## Protocolos e ROM
 
-PDF de evolução: `/assessments/{id}/report?compare_to={analysis_a}&analysis_id={analysis_b}`. B deve pertencer à avaliação da rota, A a outra avaliação do mesmo paciente. Requisitos de compatibilidade também são aplicados. O relatório preserva ambos os IDs, datas e diferenças.
+Rotas de protocolos e ROM reutilizam autenticação/tenant, mídia, jobs, análise, revisão e relatórios. Consulte `protocols.md` e `rom.md` para fórmulas/contratos detalhados.
 
-## Assessment Protocols e ROM
+## Administração e acesso
 
-Todos exigem sessão, autorização por clínica e proteção CSRF nas mutações.
+`User` possui `access_starts_at` e `access_expires_at` opcionais. `NULL` é ausência de override individual. Timestamps enviados devem ser timezone-aware. O frontend converte `datetime-local` explícito para UTC e envia `null` em campo vazio.
 
-- GET /protocols: categorias e definições.
-- GET /protocols/pending: protocolos pendentes.
-- POST /assessment-protocols: patient_id, version_id.
-- GET /assessment-protocols/{id}: snapshot e etapas.
-- PATCH /assessment-protocols/{id}/steps/{key}: revision, state, result, note; conflito retorna 409.
-- POST /assessment-protocols/{id}/steps/{key}/capture: movement e side quando ROM; cria ou retorna avaliação filha.
-- POST /assessment-protocols/{id}/complete: conclusion; verifica etapas e filhas.
-- GET /rom/movements: fórmulas, planos, instruções e limitações.
-- POST /rom/assessments: patient_id, movement, side.
-- POST /rom/preview: movement, side, view, landmarks, width, height, brightness, plane_confirmed=true. Não persiste a prévia.
-- GET /patients/{id}/rom: histórico e revisão.
+Planos incluem `trial`, `monthly`, `quarterly`, `annual`, `custom`, `lifetime`. Lifetime não deve expirar por datas comerciais herdadas; início individual explícito continua aplicável.
 
-ROM reutiliza upload, jobs, resultados, revisão e relatório existentes. PDF do protocolo agrega snapshots das avaliações filhas autorizadas.
+## Status HTTP relevantes
 
-## Concorrência de edição (2.2.1)
+- `401`: sessão ausente/inválida/expirada;
+- `403`: permissão, origem ou política de acesso comercial;
+- `404`: recurso não visível ao tenant (inclusive cross-tenant);
+- `409`: conflito/estado imutável/concorrência;
+- `413`: payload acima do limite;
+- `422`: validação;
+- `429`: excesso de tentativas de login.
 
-PATCH de paciente aceita expected_revision, obtido no campo revision da leitura. PATCH de avaliação aceita expected_notes e expected_conclusion com os valores previamente lidos. Divergência retorna 409 e preserva o conteúdo salvo. A interface envia essas precondições; clientes legados que omitem os campos mantêm compatibilidade sem proteção otimista. Etapas de protocolo continuam exigindo revision.
+## Concorrência
+
+Edição de paciente usa `expected_revision`; notas/conclusão usam valores esperados. Etapas de protocolo possuem revisão. Divergência retorna 409 e preserva o estado persistido.

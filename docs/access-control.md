@@ -1,43 +1,90 @@
-# KINUA 2.3 — Access & Commercial Administration
+# Controle de acesso e administração comercial — KINUA 2.3.0
 
-## Roles e separação
-platform_admin acessa somente /platform/* e /auth/*. Mesmo quando vinculado a uma clínica por compatibilidade relacional, não recebe acesso aos seus pacientes, relatórios, mídia ou endpoints clínicos.
-admin administra usuários da própria clínica em /admin/users; physiotherapist usa as funcionalidades clínicas. Ambos dependem do acesso da clínica.
-Somente platform_admin cria/promove outro platform_admin. Desativar ou rebaixar o último global ativo retorna 409; mudanças globais são serializadas por locks das contas globais no PostgreSQL. O seed explícito cria uma nova conta; nunca promove uma conta existente nem troca sua senha.
+## Papéis
 
-## Política UTC
-app/core/access.py calcula uma única decisão para login, requisição autenticada e painéis. now >= vencimento bloqueia. Não há cron necessário. Início futuro também bloqueia (access_not_started).
-Conta global ignora a assinatura e overrides temporais, mas não is_active=false.
-Conta clínica exige usuário ativo, clínica ativa, status trial/active, início alcançado e ambos os vencimentos não alcançados. NULL remove o respectivo limite. Override individual pode restringir, nunca ampliar o limite da clínica.
-Expiração é calculada: o campo subscription_status não precisa ser alterado automaticamente para a data produzir bloqueio.
+- `platform_admin`: administração global/comercial. Não ganha acesso a prontuários por ser global.
+- `admin`: administração da própria clínica e operação clínica.
+- `physiotherapist`: operação clínica no tenant autorizado.
 
-403 contém detail com code, plan, expires_at (limite efetivo) e days_remaining. Códigos: account_disabled, user_access_expired, clinic_suspended, subscription_expired, subscription_cancelled, access_not_started.
-401 significa sessão ausente/revogada/expirada; após revogação não guardamos o usuário em cookie recuperável. O login seguinte, após senha correta, informa o motivo comercial.
-Suspender usuário revoga todas as suas sessões. Suspender/cancelar clínica revoga sessões clínicas; não desabilita implicitamente administradores globais.
-A interface remove estado clínico quando recebe bloqueio e consulta /auth/me a cada 15 s enquanto aberta. A API bloqueia cada nova requisição imediatamente; uma resposta já autorizada/em andamento não pode ser recolhida.
+`platform_admin` só acessa rotas globais/auth apropriadas; o backend bloqueia o uso de privilégios globais para atravessar o domínio clínico.
 
-## Assinaturas
-Planos trial, monthly, quarterly, annual, custom, lifetime. O plano é descritivo: datas/status são explícitos.
-Teste 7 dias redefine início/agora e vencimento/agora+7. Extensão soma à maior data entre agora e vencimento vigente, restaura active/is_active e remove suspensão. Não elimina override individual vencido nem início futuro configurado; ajustar esses campos separadamente.
-Acesso ilimitado remove vencimento/início e ativa lifetime na UI.
-max_users limita contas ativas cadastradas/reativadas; contas expiradas ainda ativas ocupam vaga. Reduzir limite não apaga contas existentes; novas ativações são recusadas até regularizar.
-Clinic contém provider, external_subscription_id, external_customer_id, period_start e period_end para integração futura. Não há gateway, cobrança, webhook ou renovação automática.
+## Sessões
 
-## Auditoria e privacidade
-Ações globais platform.* não incluem prontuários. Alterações feitas pelo admin de clínica usam clinic.* e permanecem em seu escopo. Nenhuma senha/hash é registrada.
-Eventos de expiração são registrados ao definir estado/data vencida administrativamente. A passagem natural do tempo é calculada no acesso, sem evento agendado.
-Endpoints globais retornam campos explícitos de identificação comercial, sem relacionamentos clínicos. Não há exclusão física de usuários/clínicas nesta entrega.
+- senha Argon2;
+- sessão aleatória com token opaco;
+- apenas SHA-256 do token é persistido;
+- cookie HttpOnly, SameSite Strict e Secure em produção;
+- duração padrão de 8 horas;
+- logout remove a sessão;
+- suspensão/revogação administrativa elimina sessões afetadas conforme a ação.
 
-## Primeiro administrador global
-No diretório backend, com DATABASE_URL e demais variáveis corretas:
+Cinco tentativas inválidas na janela de 15 minutos geram bloqueio temporário. A resposta de credencial inválida é genérica.
+
+## Política de acesso
+
+`backend/app/core/access.py` é a fonte de decisão para login e requisições autenticadas.
+
+Códigos atuais incluem:
+
+- `account_disabled`
+- `user_access_expired`
+- `clinic_suspended`
+- `subscription_expired`
+- `subscription_cancelled`
+- `access_not_started`
+
+### Herança e overrides
+
+`User.access_starts_at = NULL` significa herdar o início aplicável da clínica. `User.access_expires_at = NULL` significa não impor um vencimento individual adicional.
+
+Para planos comuns, o limite efetivo respeita clínica e usuário. Override individual restringe o usuário; não deve ampliar uma janela clínica já encerrada.
+
+### Lifetime
+
+Para `plan_code=lifetime`:
+
+- a clínica não tem vencimento comercial (`access_expires_at = NULL`);
+- uma data antiga/futura de início da clínica não deve transformar automaticamente um usuário novo sem override em `access_not_started`;
+- um **início individual explícito** ainda pode bloquear aquele usuário até a data;
+- usuário inativo e clínica suspensa continuam bloqueando normalmente.
+
+Essa semântica foi adicionada/corrigida na migration `9e1609260000` e nos testes de acesso.
+
+## UTC
+
+Datas persistidas são timezone-aware e normalizadas em UTC. O browser não é fonte de verdade para “começar agora”. Campo vazio no formulário envia `null`, não uma data automática futura. Inputs `datetime-local` explícitos são convertidos uma vez para UTC, evitando deslocamento duplo.
+
+## Planos
+
+`trial`, `monthly`, `quarterly`, `annual`, `custom`, `lifetime`.
+
+O plano é metadado comercial; estado/datas são aplicados pelo backend. Ainda não há gateway, webhook de cobrança nem renovação automática.
+
+## Limite de usuários
+
+`max_users` limita contas ativas. Reduzir o limite não apaga usuários existentes. Nova ativação/cadastro ativo é recusado quando a capacidade é atingida.
+
+## Bootstrap
+
+Primeiro administrador global:
+
 ```sh
+cd backend
 python -m alembic upgrade head
 python -m app.seed --platform-admin --email seu-email@dominio.com
 ```
-Digite uma senha exclusiva com pelo menos 12 caracteres no prompt. Automação pode fornecer BOOTSTRAP_PASSWORD temporariamente em secret do ambiente; remova-o após executar.
-Se o e-mail já existir, nada será promovido ou alterado. Use outra conta para o bootstrap e depois gerencie permissões pelo painel global.
-O seed não é executado automaticamente no startup e --platform-admin não pode ser combinado com --demo.
 
-## Limitações
-Não há MFA, recuperação de senha self-service, gateway financeiro ou validação clínica nova. A API comercial ainda retorna listas completas; escalar paginação antes de milhares de contas.
-A proteção de concorrência exige PostgreSQL para múltiplas instâncias; SQLite é desenvolvimento local de um processo.
+Senha mínima: 12 caracteres. `BOOTSTRAP_PASSWORD` pode ser usado temporariamente em automação segura e deve ser removido depois. Conta existente não é promovida silenciosamente.
+
+## Demo
+
+A clínica demo é explicitamente marcada e isolada. Em produção `ALLOW_DEMO_SEED=false`. `DEMO_PASSWORD` vazia no runtime não altera a senha já persistida de uma conta demo existente.
+
+## Pendências
+
+- MFA;
+- recuperação de senha self-service;
+- política de rotação/expiração de credenciais administrativas;
+- SSO para clientes enterprise;
+- paginação server-side das telas globais em alta escala;
+- gateway financeiro/billing automático.
