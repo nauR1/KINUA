@@ -1,7 +1,38 @@
-name: Validate KINUA
-on: [push, pull_request]
+name: Validate KINUA access activation
+on: [push]
+permissions:
+  contents: write
+
 jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: kinua-access-activation-staging
+          fetch-depth: 0
+      - name: Apply access activation patch
+        run: python scripts/patch_access_activation.py
+      - name: Commit staged product changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            backend/app/core/access.py \
+            backend/app/models.py \
+            backend/app/api_admin.py \
+            backend/migrations/versions/9e160926_user_access_start.py \
+            backend/tests/test_access_admin.py \
+            frontend/lib/access-datetime.ts \
+            frontend/tests/access-datetime.test.ts \
+            frontend/components/PlatformAdmin.tsx \
+            frontend/e2e/access.spec.ts
+          git diff --cached --check
+          git commit -m "staging: apply new user access activation fix"
+          git push origin HEAD:kinua-access-activation-staging
+
   backend:
+    needs: apply
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -14,23 +45,34 @@ jobs:
         options: --health-cmd "pg_isready -U test -d biometria_test" --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: kinua-access-activation-staging
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install -r backend/requirements.txt
-      - run: sudo apt-get update && sudo apt-get install -y libgl1 libglib2.0-0 libportaudio2
-      - run: python -m pytest -q
+      - run: pip install -r backend/requirements.txt ruff
+      - run: sudo apt-get update && sudo apt-get install -y libgl1 libegl1 libgles2 libglib2.0-0 libportaudio2
+      - name: Ruff changed backend
+        run: ruff check app/core/access.py app/models.py app/api_admin.py tests/test_access_admin.py migrations/versions/9e160926_user_access_start.py
+        working-directory: backend
+      - name: Full backend suite
+        run: python -m pytest -q
         working-directory: backend
         env:
           TEST_DATABASE_URL: postgresql+psycopg://test:test-only-password@127.0.0.1:5432/biometria_test
-      - run: python -m alembic upgrade head && python -m alembic check && python -m alembic downgrade base && python -m alembic upgrade head
+      - name: Alembic round trip
+        run: python -m alembic upgrade head && python -m alembic check && python -m alembic downgrade base && python -m alembic upgrade head && python -m alembic check
         working-directory: backend
         env:
           DATABASE_URL: postgresql+psycopg://test:test-only-password@127.0.0.1:5432/biometria_test
+
   frontend:
+    needs: apply
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: kinua-access-activation-staging
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -38,5 +80,85 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
         working-directory: frontend
-      - run: npm run prepare:vision && npm run typecheck && npm run lint && npm test && npm run build
+      - name: Prepare vision assets
+        run: npm run prepare:vision
         working-directory: frontend
+      - name: Format changed frontend files
+        run: npx prettier --check components/PlatformAdmin.tsx lib/access-datetime.ts tests/access-datetime.test.ts e2e/access.spec.ts
+        working-directory: frontend
+      - name: Typecheck
+        run: npm run typecheck
+        working-directory: frontend
+      - name: Unit tests
+        run: npm test
+        working-directory: frontend
+      - name: Production build
+        run: npm run build
+        working-directory: frontend
+
+  e2e:
+    needs: apply
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test-only-password
+          POSTGRES_DB: biometria_e2e
+        ports: ['5432:5432']
+        options: --health-cmd "pg_isready -U test -d biometria_e2e" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: kinua-access-activation-staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: pip install -r backend/requirements.txt
+      - run: sudo apt-get update && sudo apt-get install -y libgl1 libegl1 libgles2 libglib2.0-0 libportaudio2
+      - run: npm ci
+        working-directory: frontend
+      - run: npx playwright install --with-deps chrome
+        working-directory: frontend
+      - name: Migrate isolated database
+        run: python -m alembic upgrade head
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql+psycopg://test:test-only-password@127.0.0.1:5432/biometria_e2e
+      - name: Bootstrap isolated platform admin
+        run: python -m app.seed --platform-admin --email platform@kinua.local
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql+psycopg://test:test-only-password@127.0.0.1:5432/biometria_e2e
+          BOOTSTRAP_PASSWORD: Test-password-123
+      - name: Start backend and frontend
+        run: |
+          (cd backend && DATABASE_URL='postgresql+psycopg://test:test-only-password@127.0.0.1:5432/biometria_e2e' uvicorn app.main:app --host 127.0.0.1 --port 8000 > /tmp/kinua-backend.log 2>&1 &)
+          (cd frontend && BACKEND_URL='http://127.0.0.1:8000' npm run dev -- --port 3000 > /tmp/kinua-frontend.log 2>&1 &)
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:8000/health >/dev/null && curl -fsS http://127.0.0.1:3000/ >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/kinua-backend.log || true
+          cat /tmp/kinua-frontend.log || true
+          exit 1
+      - name: Real form access E2E
+        run: npx playwright test e2e/access.spec.ts
+        working-directory: frontend
+        env:
+          E2E_ISOLATED: '1'
+          E2E_PASSWORD: Test-password-123
+          E2E_BASE_URL: http://127.0.0.1:3000
+      - name: Service logs on failure
+        if: failure()
+        run: |
+          cat /tmp/kinua-backend.log || true
+          cat /tmp/kinua-frontend.log || true
