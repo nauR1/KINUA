@@ -1,145 +1,150 @@
 # KINUA — tutorial para clientes
 
-**Inteligência em movimento humano · Versão 2.3.0**
+**Inteligência em movimento humano · Versão 2.3.0**  
+**Atualizado:** 16/09/2026
 
-Guia para fisioterapeutas e administradores de clínica. Referência: auditoria de 14/09/2026. Os nomes de botões correspondem ao código desta versão; a publicação online pode apresentar diferenças.
-
-> **Disponibilidade atual:** o fluxo de foto, revisão, histórico e PDF passou em testes online com dados fictícios. Vídeo e processamento ROM apresentaram falhas; Protocolos também possui pendências online. A liberação para atendimento com dados reais ainda está pendente. Use este tutorial para treinamento com dados fictícios até a comunicação formal de liberação.
+Guia operacional para fisioterapeutas e administradores de clínica. O estado técnico atual está em [`estado-atual.md`](estado-atual.md). Testes de engenharia não substituem capacitação profissional nem validação clínica.
 
 ## 1. Acessar sua conta
 
-1. Abra o [KINUA](https://frontend-production-1acc.up.railway.app/) no navegador.
-2. Preencha **E-mail** e **Senha** com o acesso individual fornecido pelo administrador.
+1. Abra o KINUA pelo endereço HTTPS fornecido pela clínica.
+2. Preencha **E-mail** e **Senha** individuais.
 3. Clique em **Entrar na plataforma**.
-4. Confira se está na clínica e no ambiente corretos antes de cadastrar informações.
+4. Confira se está na clínica e no ambiente corretos.
 
-O administrador da clínica gerencia sua equipe. O fisioterapeuta usa os recursos de avaliação. O administrador global cuida de acessos e administração comercial: esse perfil não dá acesso automático a prontuários. Se aparecer somente o painel de gestão, solicite ao administrador um acesso clínico adequado.
+O administrador da clínica gerencia sua equipe. O fisioterapeuta utiliza os recursos clínicos. O administrador global cuida de acesso/comercial e não recebe acesso automático aos prontuários.
 
-Não há senha padrão neste guia. Não compartilhe sua conta. Em caso de esquecimento da senha ou acesso expirado, procure o administrador responsável. O guia não pressupõe uma opção de recuperação automática de senha.
+Ainda não existe recuperação automática de senha. Em caso de esquecimento, procure o administrador responsável. Não compartilhe credenciais.
 
-Se houver identificação de **DEMO**, use exclusivamente informações fictícias. Dados inseridos no computador local não aparecem automaticamente na versão online.
+Se houver identificação de **DEMO**, use exclusivamente informações fictícias.
 
-## 2. Preparar a primeira avaliação
+## 2. Preparar a avaliação
 
-Use uma câmera estável, iluminação uniforme e espaço para enquadrar cabeça e pés. Evite contraluz e objetos cobrindo as articulações. Use roupas que permitam visualizar os segmentos avaliados.
+Use câmera estável, iluminação uniforme e espaço para enquadrar os segmentos necessários. Evite contraluz e oclusões. Câmera no navegador exige HTTPS ou localhost e permissão do dispositivo.
 
-O navegador precisa de autorização para abrir a câmera. Para acesso pela internet, use o endereço HTTPS. A interface se adapta a telas menores, mas a câmera física e cada dispositivo ainda precisam ser verificados antes do uso profissional.
+A interface é responsiva e o fluxo foi testado com câmera virtual/fixtures. Antes de uso profissional em um dispositivo específico, confira câmera, orientação, desempenho e formato de vídeo nesse aparelho.
 
-Para aprender o fluxo, crie um cadastro claramente fictício, por exemplo **Paciente de treinamento**, com informações sintéticas. Não use prontuários reais para testar recursos.
+## 3. Cadastrar paciente
 
-## 3. Cadastrar um paciente
+1. Abra **Pacientes** → **Cadastrar paciente**.
+2. Preencha nome e data de nascimento.
+3. Complete apenas as informações pertinentes.
+4. Salve e confira o perfil.
+5. Use **Editar paciente** para correções futuras.
 
-1. Abra **Pacientes** e escolha **Cadastrar paciente**.
-2. Preencha **Nome completo** e **Data de nascimento**.
-3. Complete, quando pertinente, dominância, contatos, profissão, prática esportiva, altura, peso, queixa e histórico.
-4. Confira as informações e clique em **Cadastrar paciente**.
-5. No perfil, use **Editar paciente** quando precisar corrigir o cadastro.
-
-Informe apenas o necessário para a avaliação. Se o sistema avisar que outra pessoa alterou o registro, preserve suas anotações, reabra o cadastro atualizado e confira antes de reaplicar a mudança.
+Se houver conflito de edição, preserve suas anotações, recarregue a versão atual e concilie antes de reenviar.
 
 ## 4. Criar uma avaliação
 
-1. Abra o paciente correto e clique em **Avaliar paciente**.
-2. Escolha o tipo e o modo de avaliação. Para o primeiro treinamento, use foto/câmera.
-3. Clique em **Iniciar captura**.
-4. Confira novamente a identificação do paciente antes de prosseguir.
+1. Abra o paciente.
+2. Clique em **Avaliar paciente**.
+3. Escolha tipo/modo apropriado.
+4. Inicie a captura.
 
-O tipo organiza a avaliação; não representa um diagnóstico. Uma captura precisa de posição e enquadramento adequados ao que será medido.
+O tipo organiza o registro; não representa diagnóstico.
 
-## 5. Capturar ou enviar uma foto
+## 5. Foto ou câmera
 
-1. Selecione a vista solicitada: anterior, posterior ou lateral correspondente.
-2. Clique em **Abrir câmera** e autorize o navegador.
-3. Aguarde os pontos e linhas sobre o corpo. Eles mostram a estimativa de posição corporal, não confirmam uma alteração clínica.
-4. Ajuste o enquadramento e clique em **Capturar imagem**.
-5. Para usar uma imagem existente, escolha **Enviar foto**. São aceitos JPEG, PNG e WebP.
-6. Confira a imagem, o nivelamento e a vista. Marque as confirmações somente se estiverem corretas.
-7. Clique em **Analisar e salvar captura** e aguarde o resultado.
+1. Selecione a vista correta.
+2. Para câmera, clique em **Abrir câmera** e autorize o navegador.
+3. Ajuste corpo/enquadramento e observe o skeleton como guia técnico.
+4. Capture ou use **Enviar foto** (JPEG, PNG ou WebP).
+5. Confirme nivelamento e vista somente quando corretos.
+6. Clique em **Analisar e salvar captura**.
 
-Se a foto ficou inadequada, use **Refazer com câmera**. É possível acrescentar outras vistas antes de concluir a avaliação. Use **Desligar** para encerrar a câmera. Se a visualização ficar lenta, reduza a opção **Análise ao vivo**; isso não melhora, por si só, a precisão das medidas.
+Os landmarks são estimativas do modelo e não confirmam alteração clínica.
 
-## 6. Entender e revisar os resultados
+## 6. Revisar resultados
 
-Confira a região, o lado, a unidade e a qualidade informada para cada medida. Um ângulo aparente em imagem 2D pode variar com a perspectiva e com o posicionamento da câmera.
+- **Não mensurável:** informação insuficiente; não significa zero/normalidade.
+- **Visibilidade/qualidade:** indicador técnico do landmark/captura, não probabilidade diagnóstica.
+- **Revisão profissional:** confirme ou descarte cada registro conforme avaliação clínica.
+- **Limitações:** considere perspectiva, posicionamento, roupa e oclusão.
 
-- **Não mensurável:** não houve informação suficiente para apresentar aquela medida. Não interprete como zero ou normalidade.
-- **Confiança/visibilidade:** indicador técnico da captura ou dos pontos detectados; não é probabilidade de diagnóstico nem garantia de precisão.
-- **Registros para revisão:** pontos que precisam do julgamento do profissional. Use **Confirmar medida** ou **Descartar**, conforme sua análise.
-- **Limitações e rastreabilidade:** explica restrições e identifica os métodos usados.
-
-No mapa corporal, selecione uma região para consultar seus registros. Confirmar uma medida não confirma uma doença. Associe os resultados ao exame, histórico e testes pertinentes conduzidos pelo profissional.
+O mapa corporal é navegação/agrupamento; não marca estruturas “doentes”.
 
 ## 7. Salvar e concluir
 
-1. Em **Interpretação do fisioterapeuta**, registre **Observações** e **Conclusão profissional**.
-2. Clique em **Salvar observações** e aguarde a confirmação.
-3. Revise todos os registros antes de clicar em **Concluir avaliação**.
+1. Registre observações e conclusão profissional.
+2. Salve e aguarde confirmação.
+3. Revise registros pendentes.
+4. Clique em **Concluir avaliação**.
 
-Concluir exige a revisão dos registros e uma conclusão preenchida. A avaliação concluída fica imutável. Para acompanhamento, crie outra avaliação; não tente substituir o resultado anterior.
+Avaliação concluída é preservada como histórico. Para evolução, crie nova avaliação.
 
-## 8. Reabrir e baixar o relatório
+## 8. PDF e histórico
 
-1. Acesse **Histórico** e localize a avaliação do paciente.
-2. Abra o registro e confira as capturas, medidas e observações salvas.
-3. Clique em **Baixar relatório PDF**.
-4. Confira paciente, data, conteúdo e conclusão antes de compartilhar pelo canal autorizado pela clínica.
+1. Abra **Histórico**.
+2. Reabra a avaliação desejada.
+3. Confira capturas, medidas, revisões e conclusão.
+4. Baixe o PDF.
 
-O relatório utiliza informações salvas. Se houver alterações pendentes, salve-as antes de gerar o PDF. Arquivos baixados ficam no dispositivo: proteja-os e não os envie em canais públicos. O PDF é apoio à avaliação profissional, não um diagnóstico automático.
+Proteja o arquivo baixado como dado de saúde. Não use canais públicos/não autorizados para compartilhamento.
 
-## 9. Protocolos de avaliação
+## 9. Protocolos
 
-**Recurso com pendências online.** O roteiro abaixo descreve o funcionamento implementado; não significa que todas as etapas estejam liberadas no ambiente público.
+Assessment Protocols estão implementados e integrados ao fluxo atual.
 
-1. Abra **Protocolos** e escolha a **Categoria**.
-2. Confira o **Paciente do protocolo** e clique em **Iniciar protocolo**.
-3. Leia as instruções de cada etapa, registre observações e atualize o **Estado da etapa**.
-4. Use **Salvar etapa** quando apresentado e aguarde a indicação de salvamento antes de sair.
-5. Realize as capturas vinculadas e revise seus resultados. Só pule etapas quando o roteiro permitir, registrando a justificativa solicitada.
-6. Preencha **Conclusão do protocolo** e conclua após atender aos requisitos das etapas.
+1. Abra **Protocolos** e escolha categoria/paciente.
+2. Inicie o protocolo.
+3. Preencha cada etapa, observação e estado.
+4. Salve antes de avançar quando solicitado.
+5. Execute as capturas/ROM vinculadas e revise as avaliações filhas.
+6. Pule apenas etapas que permitam isso e registre justificativa.
+7. Preencha a conclusão e finalize quando os requisitos forem atendidos.
 
-O roteiro pode ser retomado pelo histórico. Se a seleção de paciente não estiver preenchida, confira-a manualmente antes de iniciar. Na versão online auditada, uma etapa que depende de ROM pode falhar; não marque uma etapa como realizada sem executá-la e revisá-la.
+Algumas etapas do catálogo podem ser deliberadamente textuais ou indisponíveis (por exemplo, recursos ainda não implementados); isso deve aparecer como limitação explícita, não como resultado simulado.
 
-## 10. ROM — amplitude de movimento
+## 10. ROM
 
-**Processamento online pendente de correção e reteste.** Não use falhas ou resultados incompletos para fundamentar uma decisão clínica.
+KINUA ROM contempla sete movimentos: flexão/abdução de ombro, flexão/extensão de cotovelo, flexão de quadril e flexão/extensão de joelho.
 
-O módulo contempla flexão e abdução de ombro, flexão e extensão de cotovelo, flexão de quadril, flexão e extensão de joelho.
+1. Abra **ROM** ou entre por uma etapa ROM do protocolo.
+2. Selecione paciente, movimento e lado.
+3. Siga a orientação de plano/vista.
+4. Grave o movimento ou envie vídeo compatível.
+5. Confira série, pico, qualidade e revisão.
+6. Conclua somente após revisão profissional.
 
-Quando liberado no seu ambiente:
-
-1. Abra **ROM**, selecione **Paciente do ROM**, **Articulação e movimento** e **Lado do ROM**.
-2. Clique em **Iniciar avaliação ROM**.
-3. Siga as orientações de plano e vista; confirme o lado e o posicionamento antes da captura.
-4. Realize o movimento conforme a orientação profissional, sem forçar amplitude para atender ao sistema.
-5. Confira a série, o pico, a qualidade e a revisão antes de concluir.
-
-Uma medida geométrica obtida pela câmera não substitui a avaliação de dor, capacidade funcional ou a comparação com um método de referência.
+ROM do KINUA é geometria 2D baseada em landmarks e ainda requer validação contra referência clínica/instrumental antes de afirmações de equivalência à goniometria.
 
 ## 11. Vídeo e evolução
 
-**Vídeo apresentou falha online na última auditoria.** A interface oferece **Gravar movimento** e **Enviar vídeo**, mas a presença desses controles não garante o processamento no ambiente atual. Em caso de falha, interrompa o teste e solicite suporte, sem repetir uploads indefinidamente.
+Vídeo e worker estão operacionais no estado atual verificado. A plataforma aceita:
 
-Para acompanhar evolução, registre avaliações separadas e compare condições semelhantes: movimento, lado, vista e posicionamento. Uma diferença numérica não equivale automaticamente a melhora clínica. Compare também a qualidade das capturas e o contexto do exame. A evolução de vídeo/ROM online depende da resolução das pendências desses módulos.
+- MP4;
+- WebM;
+- MOV/QuickTime quando conteúdo/codec são decodificáveis;
+- máximo padrão de 100 MiB e 60 s.
 
-## 12. Resolver dificuldades comuns
+A gravação pelo navegador não solicita microfone. Vídeos enviados da biblioteca podem conter áudio/metadados originais; eles permanecem privados e não são usados na inferência.
+
+Arquivos MOV foram validados tecnicamente. **HEVC/H.265 de iPhone ainda depende do dispositivo/decoder e não deve ser presumido universalmente compatível.** Se um vídeo falhar, registre formato, aparelho, navegador, horário e mensagem para suporte; evite uploads repetidos sem diagnóstico.
+
+Para evolução, compare condições equivalentes de protocolo, lado, vista, câmera e posicionamento. Diferença numérica não significa automaticamente melhora clínica.
+
+## 12. Problemas comuns
 
 | Situação | Como proceder |
-| --- | --- |
-| Login recusado | Confira e-mail e senha. Evite tentativas repetidas; procure o administrador se persistir |
-| Acesso expirado ou suspenso | Solicite ao administrador a revisão do acesso; não crie outra conta para contornar o bloqueio |
-| Câmera não abre | Confira a permissão do navegador, o endereço HTTPS e se outro aplicativo está usando a câmera |
-| Corpo não detectado | Melhore a iluminação, enquadre cabeça e pés e remova obstruções |
-| Medida indisponível | Confira vista, lado e qualidade; repita a captura se necessário |
-| Falha ao salvar | Mantenha suas anotações, confira a conexão e verifique no histórico se houve salvamento antes de duplicar o registro |
-| Conflito de edição | Preserve seu texto e reabra a versão atual para conciliar as alterações |
-| Vídeo/ROM falha ao processar | Registre horário e mensagem e encaminhe ao suporte; o ambiente possui pendência conhecida |
-| PDF não reflete uma edição | Salve as observações e gere novamente |
-| Paciente não aparece | Confira o ambiente e a conta da clínica; solicite ajuda sem tentar acessar outra clínica |
+|---|---|
+| Login recusado | confira credenciais; não faça tentativas repetidas; procure o administrador |
+| Acesso ainda não iniciou | confirme a data individual/comercial com o administrador |
+| Acesso expirado/suspenso | solicite regularização; não crie conta paralela |
+| Câmera não abre | confira HTTPS, permissão e uso por outro app |
+| Corpo não detectado | melhore iluminação/enquadramento e reduza oclusões |
+| Medida indisponível | confira vista, lado, plano e qualidade; recapture se necessário |
+| Conflito de edição | preserve o texto e reabra a versão atual |
+| Vídeo incompatível | tente MP4/WebM ou MOV decodificável; informe codec/dispositivo ao suporte |
+| Job demora/falha | não duplique avaliação; reabra o histórico e confira estado do job |
+| PDF não reflete edição | confirme que observações foram salvas antes de gerar novamente |
+| Paciente não aparece | confira clínica/ambiente; não tente acessar outro tenant |
 
-Ao solicitar suporte, informe a tela, a ação, o horário, o navegador e a mensagem de erro. Nunca envie sua senha. Remova nomes, imagens, documentos e demais informações de pacientes de qualquer captura de tela enviada.
+Ao pedir suporte, envie IDs/tela/horário/navegador e mensagem sanitizada. Nunca envie senha, cookie, dump de prontuário ou mídia clínica sem canal autorizado.
 
-## 13. Encerrar o uso
+## 13. Encerrar
 
-Confirme o salvamento e desligue a câmera. Clique em **Sair**, principalmente em computadores compartilhados. Proteja os relatórios baixados conforme as orientações da clínica.
+Confirme salvamento, desligue a câmera e clique em **Sair**, principalmente em computador compartilhado. Proteja relatórios e downloads conforme a política da clínica.
 
-Para responsáveis técnicos, o [estado atual do sistema](estado-atual.md) reúne arquitetura, verificação e pendências. Este tutorial orienta a operação; não substitui capacitação clínica nem autoriza o uso de recursos ainda não liberados.
+## Nota de prontidão
+
+Infraestrutura, vídeo/worker, S3 e restore já possuem evidência técnica atual. **Validação clínica, governança LGPD e avaliação regulatória permanecem separadas e pendentes.** Consulte [`clinical-readiness.md`](clinical-readiness.md).

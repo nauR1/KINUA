@@ -1,32 +1,80 @@
-# Arquitetura e decisões
+# Arquitetura e decisões — KINUA 2.3.0
 
-Monorepositório com Next.js/React/TypeScript e FastAPI/Pydantic/SQLAlchemy. PostgreSQL é o banco de implantação; SQLite existe apenas como alternativa local e para testes. Alembic gerencia o esquema em ambos.
+## Visão geral
 
-## Fluxo
-Captura ou upload → validação de mídia → PoseProvider no Web Worker → landmarks normalizados → API → BiomechanicsEngine → AttentionEngine → regras versionadas → revisão profissional → PDF.
+Monorepositório com frontend Next.js/React/TypeScript e backend FastAPI/Pydantic/SQLAlchemy. PostgreSQL é o banco de produção; SQLite permanece opção local. Alembic controla o schema. Mídia privada fica fora do banco, via `StorageProvider` local ou S3.
 
-Em fotos/webcam, MediaPipe opera no dispositivo; o backend calcula medidas a partir dos landmarks recebidos. Em vídeo, upload validado → ProcessingJob no PostgreSQL → subprocesso MediaPipe/OpenCV → MotionEngine → frames/séries/resumos → revisão. O provider Python permanece substituível. Nenhum caminho recebe medidas clínicas prontas do cliente. Resultados são snapshots imutáveis, com versão do modelo e motores. Novas capturas não reescrevem resultados antigos.
+## Fluxo clínico
 
-Componentes: `frontend/vision` e `backend/app/vision` contêm providers substituíveis; `backend/app/biomechanics` geometria pura; `backend/app/clinical` regras; `backend/app/services` orquestração/comparação; `backend/app/storage` mídia privada; `backend/app/jobs.py` fila durável. Geometria e esquema canônico não dependem de MediaPipe.
+```text
+Navegador
+  ├─ foto/webcam → MediaPipe Web Worker → landmarks
+  ├─ vídeo → upload privado
+  └─ /api → proxy Next.js → FastAPI
+                         ├─ autorização/tenant
+                         ├─ PostgreSQL
+                         ├─ storage S3
+                         ├─ geometria/ROM/regras
+                         ├─ revisão profissional/PDF
+                         └─ ProcessingJob → worker Python → MediaPipe/OpenCV
+```
 
-Autenticação: senha Argon2, token de sessão aleatório com hash no banco, cookie HttpOnly/SameSite, validade e revogação. Requisições mutáveis validam Origin. Recursos são isolados por clínica e todas as consultas de domínio exigem esse escopo. Arquivos são servidos após autorização, sem diretório público.
+Fotos/webcam: a inferência inicial ocorre no navegador; o backend valida a estrutura e calcula medidas. Vídeos: o arquivo persistido é processado pelo worker Python. Resultados registram versões/proveniência e avaliações concluídas não são reescritas.
 
-## Escopo e sequência
-1. Autenticação, pacientes, avaliações, migração e auditoria.
-2. Webcam/foto real, skeleton, upload separado e medição objetiva.
-3. Revisão, histórico, PDF, testes e instalação reproduzível.
-4. Vídeo e séries temporais; fases de agachamento somente experimentais até validação.
+## Componentes
 
-## Decisões de implantação
-Sites foi avaliado: seu runtime Cloudflare Workers não executa este backend Python/PostgreSQL. Mantemos a stack e a entrega de repositório solicitadas, com execução local/Docker. Não publicamos uma interface sem backend acessível.
+- `frontend/app`, `frontend/components`: interface clínica/comercial.
+- `frontend/vision`: provider browser, WASM, worker e skeleton.
+- `backend/app/core`: configuração, banco, autenticação e acesso.
+- `backend/app/biomechanics`: geometria e movimento.
+- `backend/app/rom.py`: motor ROM (`rom-1.0.0`).
+- `backend/app/clinical`: regras clínicas versionadas e separadas da medição.
+- `backend/app/services`: análise, comparação e serialização.
+- `backend/app/storage.py`: storage privado local/S3.
+- `backend/app/jobs.py`: fila durável no PostgreSQL e worker.
+- `backend/app/reports.py`: PDF.
+- `backend/migrations`: Alembic; head atual `9e1609260000`.
 
-## Riscos
-Medição 2D depende de perspectiva, roupa, oclusão e enquadramento. Visibility não é probabilidade clínica. Sem calibração não há centímetros, profundidade métrica ou diagnóstico. Câmera exige HTTPS ou localhost. Validação clínica e regulatória é uma etapa independente antes do uso assistencial. Desenvolvimento e demonstração usam dados fictícios.
+## Infraestrutura de produção
 
-## Estabilização 2.2.1
+Railway, região `ams`, com frontend, backend, worker, PostgreSQL persistente/serviço de backup e bucket S3. Frontend é o ponto público; backend/worker/banco devem permanecer privados. Healthchecks: `/` e `/health`.
 
-ProcessingJob.run_token identifica cada tentativa. Heartbeat, publicação e falhas tardias são condicionados à mesma tentativa para impedir publicação após cancelamento/retry. A troca de versão exige parar workers antigos.
+## Autenticação e autorização
 
-Pacientes retornam revisão derivada do conteúdo; a UI envia expected_revision ao editar. Notas/conclusão enviam expected_notes/expected_conclusion. Bloqueios transacionais e comparação impedem sobrescrita por clientes concorrentes que usam esses contratos. Clientes antigos que omitem os campos mantêm compatibilidade, sem essa proteção otimista. Etapas de protocolo continuam com revisão obrigatória.
+- senha Argon2;
+- token de sessão aleatório, somente hash no banco;
+- cookie HttpOnly/Secure/SameSite Strict em produção;
+- sessão padrão de 8 h;
+- CORS/origin explícito e cabeçalho anti-CSRF para mutações;
+- `platform_admin` separado do domínio clínico;
+- todos os recursos clínicos escopados por `clinic_id`.
 
-Protocolos, ROM e snapshots estão descritos em protocols.md e rom.md. Revisões de achados e histórico ROM usam consultas agrupadas para reduzir N+1.
+## Acesso comercial
+
+`Clinic` e `User` possuem estado e janela de acesso. Usuário sem override herda a clínica. Overrides individuais podem restringir. Lifetime não expira e não deve ser bloqueado por datas comerciais antigas herdadas. O backend usa UTC como fonte de verdade.
+
+## Visão computacional e versionamento
+
+Browser: `@mediapipe/tasks-vision 0.10.32`. Servidor: `mediapipe 0.10.35`. Ambos usam `pose_landmarker_lite/float16/1` com SHA-256 fixado no projeto. Atualizações devem passar por regressão comparativa e registro explícito das versões.
+
+## Resiliência
+
+- `ProcessingJob.run_token` isola tentativas e impede publicação tardia após cancel/retry.
+- backup PostgreSQL diário para S3;
+- restore drill real aprovado;
+- storage S3 testado com put/get/delete;
+- migrations aplicadas em pre-deploy do backend.
+
+## Limitações arquiteturais atuais
+
+- frontend ainda funciona majoritariamente como aplicação de página única por estado, sem URL própria para toda avaliação;
+- lista de pacientes/usuários precisa evoluir para paginação server-side em escala;
+- worker não possui health endpoint externo dedicado;
+- fila usa PostgreSQL, suficiente no estágio atual, mas pode exigir fila/broker dedicado sob carga elevada;
+- landmarks de foto gerados no cliente não possuem verificação independente completa contra a imagem no servidor;
+- não existe isolamento entre profissionais dentro da mesma clínica;
+- MFA e recuperação de senha ainda não existem.
+
+## Princípio clínico
+
+Medição objetiva e interpretação profissional permanecem separadas. Visibility é qualidade técnica do landmark, não probabilidade de correção clínica. O sistema não deve ativar thresholds/diagnósticos sem validação apropriada.

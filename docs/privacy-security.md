@@ -1,26 +1,67 @@
-# Privacidade e segurança
+# Privacidade e segurança — KINUA 2.3.0
 
-## Implementado
-- Argon2 para senhas; não há senha padrão no código. Bootstrap explícito exige 12 caracteres.
-- Sessões aleatórias de 48 bytes, hash SHA-256 no banco, validade de 8 horas, cookie HttpOnly/SameSite=Strict, revogação no logout.
-- Origin permitido e cabeçalho customizado em operações mutáveis; CORS restrito. Nenhum token de autenticação em localStorage.
-- Cinco tentativas inválidas por conta em 15 minutos acionam bloqueio temporário. E-mails de tentativa são armazenados como hash; a resposta de erro é genérica.
-- Autorização por clínica em pacientes, avaliações, mídia, revisão e relatório. Administração exige papel admin. Pacientes ainda não possuem portal.
-- Upload limitado, decodificação real de imagem, dimensões máximas e reencodificação JPEG. EXIF e localização são removidos. Nome de arquivo enviado não vira caminho do servidor.
-- Arquivos fora da área pública, nome aleatório e download autenticado. SHA-256 da mídia normalizada e do PDF registrado.
-- Pydantic rejeita campos extras, NaN, infinitos, landmarks duplicados e valores fora dos limites técnicos.
-- Auditoria sem queixas, notas, senhas ou imagem: ator, clínica, ação, recurso e data. Logs de acesso do Uvicorn desabilitados na configuração de implantação.
-- Usuários de container sem privilégios; PostgreSQL sem porta pública; frontend exposto somente em loopback por padrão.
+## Controles implementados
 
-## Limites explícitos antes de dados reais
-Esta entrega não afirma conformidade LGPD nem autorização regulatória. A operação com dados de saúde exige definição pelo responsável de finalidade/base legal, retenção, descarte, direitos dos titulares, controle de acesso, contratos, resposta a incidentes e adequação regulatória. São decisões organizacionais e jurídicas, não garantias dadas pelo código.
+- Argon2 para senhas; sem senha padrão no código.
+- Sessões opacas, hash SHA-256 no banco, cookies HttpOnly/Secure/SameSite Strict em produção.
+- CORS/origens explícitas e proteção adicional em mutações por `X-Requested-With`.
+- Rate limit de login por conta/janela.
+- Isolamento por `clinic_id` em recursos clínicos.
+- `platform_admin` sem acesso clínico automático.
+- Uploads com limite, validação/decodificação e nomes de storage controlados pelo servidor.
+- Imagens normalizadas removem EXIF/localização; storage não é diretório público.
+- S3 privado em produção; teste real de put/get/delete aprovado.
+- Auditoria de ações sem registrar senha/hash/imagem/prontuário completo.
+- Containers de aplicação executam como usuário não-root.
+- Backend e PostgreSQL não precisam de domínio público.
+- `ENVIRONMENT=production` exige PostgreSQL, origens HTTPS e cookies Secure.
+- Frontend publica `robots.txt` com `Disallow: /` e `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet, noimageindex`.
+- `Permissions-Policy` restringe câmera ao próprio site e desativa microfone.
 
-TLS, criptografia de disco/volumes, backup cifrado, restauração testada, gestão de segredos, revisão de permissões, monitoramento e atualização de dependências pertencem à implantação. `SECURE_COOKIES=true` deve ser usado com HTTPS. SQLite e cookies sem Secure são apenas para desenvolvimento em localhost.
+## Persistência e recuperação
 
-O MVP não tem MFA, recuperação de senha por e-mail, expurgo automático, antivírus de upload, exportação de dados para titulares, anonimização para treinamento ou log à prova de adulteração. O administrador de banco ainda pode modificar registros. Não há isolamento entre profissionais dentro da mesma clínica: todos os fisioterapeutas autorizados da clínica acessam seus pacientes.
+Em 16/09/2026 o banco persistente sobreviveu a restart e o bucket foi exercitado. Backup PostgreSQL real é enviado diariamente ao S3 e um restore drill em banco descartável recuperou 28 tabelas no head `9e1609260000`.
 
-Em fotos/webcam, landmarks são produzidos no navegador e validados estruturalmente no backend. Isso não autentica a origem visual de um cliente modificado. Em vídeo, a inferência é executada pelo servidor sobre o arquivo persistido. Treinamento futuro deve usar consentimento/finalidade apropriados, revisão da qualidade, separação de bases e controles adicionais; salvar revisões não autoriza reutilizar dados para treinamento.
+Isso resolve a ausência de evidência operacional que constava em auditorias antigas; não resolve sozinho continuidade de negócio. Ainda faltam RPO/RTO, retenção formal, alertas e estratégia de recuperação/versionamento da mídia S3.
 
-Vídeos têm limite de 100 MiB, 60 segundos e 4K, assinatura de contêiner e validação em subprocesso com limite de 90 segundos. Inferência usa outro subprocesso, limitado a quatro minutos; cancelamento bloqueia publicação. Não existe sandbox de codec além do usuário sem privilégios no container. Vídeos enviados preservam conteúdo/metadados originais, inclusive áudio quando presente; a gravação da aplicação não solicita microfone. O armazenamento permanece privado. Backup e política de retenção devem incluir vídeo e séries temporais.
+## Vídeo
 
-O detector é executado no dispositivo, com modelo e WASM servidos localmente após instalação. Imagens não são enviadas ao Google. Ao clicar em analisar, a captura é transmitida ao backend da instalação e armazenada para o prontuário.
+Limite padrão: 100 MiB e 60 s. O backend aceita MP4/WebM/MOV quando o contêiner e o conteúdo são válidos e decodificáveis. Arquivos enviados podem conter áudio/metadados originais; a gravação da aplicação não solicita microfone. Inferência usa subprocesso/worker, com controles de duração e estado.
+
+MOV/QuickTime foi validado em pipeline de engenharia. Isso **não** garante compatibilidade com todo codec de iPhone; HEVC/H.265 precisa de matriz física de dispositivos.
+
+## Visão no navegador
+
+Fotos/webcam usam MediaPipe no browser. A imagem só é enviada ao backend KINUA quando o usuário salva/análise a captura; não é enviada ao Google para inferência. O backend valida landmarks estruturalmente, mas um cliente modificado ainda pode tentar fornecer landmarks não correspondentes à imagem. Avaliar verificação server-side adicional antes de elevar confiança/proveniência.
+
+## Pendências prioritárias
+
+1. repositório `nauR1/KINUA` está **público**; migrar para privado após revisar integrações/deploy;
+2. branch `main` está sem proteção obrigatória; exigir PR + CI verde + revisão;
+3. MFA não implementado;
+4. recuperação de senha por fluxo seguro não implementada;
+5. pentest externo/autorizado não realizado;
+6. observabilidade/alertas ainda insuficientes;
+7. política de retenção/expurgo e resposta a incidentes precisa ser formalizada;
+8. revisar segredos/rotação periodicamente;
+9. definir governança LGPD, bases legais, direitos do titular, operadores e transferência internacional;
+10. não existe isolamento por profissional dentro da mesma clínica.
+
+## LGPD e uso clínico
+
+Dados de saúde, imagens e vídeos corporais são sensíveis. Controles técnicos do código não equivalem a conformidade LGPD. A organização responsável precisa definir finalidade, base legal, transparência, retenção, descarte, atendimento a titulares, incident response e contratos com operadores/suboperadores.
+
+A infraestrutura atual usa região `ams`; portanto, a avaliação de privacidade deve considerar transferência internacional e os termos/garantias dos provedores aplicáveis.
+
+## Princípio de logs
+
+Nunca registrar em logs de aplicação/suporte:
+
+- senha ou hash;
+- cookie/session token;
+- URL com credencial de banco/S3;
+- dump completo de paciente;
+- imagem/vídeo clínico;
+- conteúdo desnecessário de prontuário.
+
+Evidências de suporte devem preferir IDs técnicos, timestamps, status, versões e mensagens sanitizadas.
