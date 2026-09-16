@@ -314,6 +314,195 @@ def test_clinic_invalid_inputs(platform, body):
     assert platform.patch("/platform/clinics/clinic-1", json=body).status_code == 422
 
 
+def _fresh_login(email: str):
+    with TestClient(
+        app,
+        headers={"X-Requested-With": "Biometria", "Origin": "http://localhost:3000"},
+    ) as fresh:
+        return fresh.post(
+            "/auth/login",
+            json={"email": email, "password": "Test-password-123"},
+        )
+
+
+def _platform_user(platform, clinic_id: str, email: str, **overrides):
+    body = {
+        "name": "Access Regression",
+        "email": email,
+        "password": "Test-password-123",
+        "role": "physiotherapist",
+        "clinic_id": clinic_id,
+    }
+    body.update(overrides)
+    response = platform.post("/platform/users", json=body)
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def test_new_user_lifetime_without_override_logs_in_immediately(platform):
+    future = m.now() + timedelta(days=1)
+    clinic = platform.post(
+        "/platform/clinics",
+        json={
+            "name": "Lifetime immediate access",
+            "plan_code": "lifetime",
+            "subscription_status": "active",
+            "access_starts_at": future.isoformat(),
+            "access_expires_at": (future + timedelta(days=30)).isoformat(),
+        },
+    )
+    assert clinic.status_code == 201
+    clinic = clinic.json()
+    assert clinic["access_expires_at"] is None
+    user = _platform_user(
+        platform,
+        clinic["id"],
+        "lifetime-immediate@test.local",
+        access_starts_at=None,
+        access_expires_at=None,
+    )
+    assert user["access_starts_at"] is None
+    assert user["access"]["allowed"] is True
+    assert _fresh_login("lifetime-immediate@test.local").status_code == 200
+
+
+def test_new_user_monthly_inherits_clinic_window(platform):
+    now = m.now()
+    clinic = platform.post(
+        "/platform/clinics",
+        json={
+            "name": "Monthly inherited access",
+            "plan_code": "monthly",
+            "subscription_status": "active",
+            "access_starts_at": (now - timedelta(days=1)).isoformat(),
+            "access_expires_at": (now + timedelta(days=30)).isoformat(),
+        },
+    ).json()
+    user = _platform_user(platform, clinic["id"], "monthly-inherit@test.local")
+    assert user["access_starts_at"] is None
+    assert user["access"]["allowed"] is True
+    assert _fresh_login("monthly-inherit@test.local").status_code == 200
+
+
+def test_user_explicit_start_blocks_then_allows_same_account(platform):
+    clinic = platform.post(
+        "/platform/clinics",
+        json={"name": "Explicit user start", "plan_code": "lifetime"},
+    ).json()
+    user = _platform_user(
+        platform,
+        clinic["id"],
+        "future-user@test.local",
+        access_starts_at=(m.now() + timedelta(days=1)).isoformat(),
+    )
+    denied = _fresh_login("future-user@test.local")
+    assert denied.status_code == 403
+    assert denied.json()["detail"]["code"] == "access_not_started"
+    updated = platform.patch(
+        "/platform/users/" + user["id"],
+        json={"access_starts_at": (m.now() - timedelta(seconds=1)).isoformat()},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["access"]["allowed"] is True
+    assert _fresh_login("future-user@test.local").status_code == 200
+
+
+def test_access_policy_distinguishes_user_and_clinic_blocks(platform):
+    clinic = platform.post(
+        "/platform/clinics",
+        json={"name": "Access state ordering", "plan_code": "monthly"},
+    ).json()
+    user = _platform_user(platform, clinic["id"], "states@test.local")
+
+    assert platform.patch(
+        "/platform/users/" + user["id"], json={"is_active": False}
+    ).status_code == 200
+    denied = _fresh_login("states@test.local")
+    assert denied.status_code == 403
+    assert denied.json()["detail"]["code"] == "account_disabled"
+
+    assert platform.patch(
+        "/platform/users/" + user["id"], json={"is_active": True}
+    ).status_code == 200
+    assert platform.patch(
+        "/platform/clinics/" + clinic["id"],
+        json={"subscription_status": "suspended"},
+    ).status_code == 200
+    denied = _fresh_login("states@test.local")
+    assert denied.status_code == 403
+    assert denied.json()["detail"]["code"] == "clinic_suspended"
+
+    assert platform.patch(
+        "/platform/clinics/" + clinic["id"],
+        json={"subscription_status": "active", "is_active": True},
+    ).status_code == 200
+    assert platform.patch(
+        "/platform/users/" + user["id"],
+        json={"access_expires_at": (m.now() - timedelta(seconds=1)).isoformat()},
+    ).status_code == 200
+    denied = _fresh_login("states@test.local")
+    assert denied.status_code == 403
+    assert denied.json()["detail"]["code"] == "user_access_expired"
+
+
+def test_access_start_timezone_boundary_is_compared_once():
+    local = timezone(timedelta(hours=-3))
+    user = m.User(
+        role="physiotherapist",
+        is_active=True,
+        access_starts_at=datetime(2026, 9, 16, 0, 30, tzinfo=local),
+    )
+    clinic = m.Clinic(
+        is_active=True,
+        plan_code="monthly",
+        subscription_status="active",
+    )
+    before = datetime(2026, 9, 16, 3, 29, 59, tzinfo=timezone.utc)
+    boundary = datetime(2026, 9, 16, 3, 30, tzinfo=timezone.utc)
+    assert access_state(user, clinic, before)["code"] == "access_not_started"
+    assert access_state(user, clinic, boundary)["code"] is None
+
+
+def test_platform_admin_and_demo_access_regressions():
+    global_admin = m.User(role="platform_admin", is_active=True)
+    blocked_clinic = m.Clinic(
+        is_active=False,
+        plan_code="monthly",
+        subscription_status="suspended",
+        access_starts_at=NOW + timedelta(days=1),
+    )
+    assert access_state(global_admin, blocked_clinic, NOW)["allowed"] is True
+
+    demo_user = m.User(role="physiotherapist", is_active=True)
+    demo = m.Clinic(
+        is_demo=True,
+        is_active=True,
+        plan_code="trial",
+        subscription_status="expired",
+        access_starts_at=NOW + timedelta(days=1),
+        access_expires_at=NOW - timedelta(days=1),
+    )
+    assert access_state(demo_user, demo, NOW)["allowed"] is True
+
+
+def test_user_access_start_requires_timezone(platform):
+    clinic = platform.post(
+        "/platform/clinics",
+        json={"name": "Aware user dates", "plan_code": "lifetime"},
+    ).json()
+    response = platform.post(
+        "/platform/users",
+        json={
+            "name": "Naive date",
+            "email": "naive-date@test.local",
+            "password": "Test-password-123",
+            "clinic_id": clinic["id"],
+            "access_starts_at": "2026-09-16T00:30:00",
+        },
+    )
+    assert response.status_code == 422
+
+
 class FakeS3:
     def __init__(self):
         self.objects = {}
