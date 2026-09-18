@@ -8,6 +8,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    Index,
     String,
     Text,
     UniqueConstraint,
@@ -105,6 +106,7 @@ class Professional(Base):
 
 class Session(Base):
     __tablename__ = "sessions"
+    __table_args__ = (Index("ix_sessions_expires_at", "expires_at"),)
     token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -119,6 +121,9 @@ class LoginAttempt(Base):
 
 class Patient(Base):
     __tablename__ = "patients"
+    __table_args__ = (
+        Index("ix_patients_clinic_created_at", "clinic_id", "created_at"),
+    )
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
     clinic_id: Mapped[str] = mapped_column(ForeignKey("clinics.id"), index=True)
     name: Mapped[str] = mapped_column(String(160))
@@ -129,6 +134,15 @@ class Patient(Base):
 
 class Assessment(Base):
     __tablename__ = "assessments"
+    __table_args__ = (
+        Index(
+            "ix_assessments_patient_clinic_created_at",
+            "patient_id",
+            "clinic_id",
+            "created_at",
+        ),
+        Index("ix_assessments_clinic_created_at", "clinic_id", "created_at"),
+    )
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
     clinic_id: Mapped[str] = mapped_column(ForeignKey("clinics.id"), index=True)
     patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id"), index=True)
@@ -195,6 +209,9 @@ class PoseFrame(Base):
 
 class ProcessingJob(Base):
     __tablename__ = "processing_jobs"
+    __table_args__ = (
+        Index("ix_processing_jobs_state_created_at", "state", "created_at"),
+    )
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
     assessment_id: Mapped[str] = mapped_column(ForeignKey("assessments.id"), index=True)
     media_id: Mapped[str] = mapped_column(
@@ -282,6 +299,9 @@ class Report(Base):
 class AuditLog(Base):
     changes: Mapped[dict | None] = mapped_column(JSON)
     __tablename__ = "audit_logs"
+    __table_args__ = (
+        Index("ix_audit_logs_clinic_created_at", "clinic_id", "created_at"),
+    )
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
     clinic_id: Mapped[str] = mapped_column(ForeignKey("clinics.id"), index=True)
     actor_id: Mapped[str] = mapped_column(ForeignKey("users.id"))

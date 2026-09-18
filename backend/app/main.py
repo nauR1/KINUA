@@ -1,4 +1,5 @@
 import hashlib
+import os
 import secrets
 from datetime import timedelta
 from typing import Literal
@@ -43,7 +44,7 @@ from .reports import make_pdf
 from .repositories import assessment_for, audit, patient_for
 from .services.analysis import analyze
 from .services.comparison import compare
-from .services.serialization import assessment_result, row
+from .services.serialization import analysis_series, assessment_result, row
 from .storage import get_storage, media_prefix, normalize_image
 
 app = FastAPI(title="KINUA API", version="2.3.0")
@@ -115,10 +116,30 @@ async def conflict(request, exc):
     )
 
 
-@app.get("/health")
-def health(db: DBSession = Depends(get_db)):
+@app.get("/health/live")
+def health_live():
+    return {"status": "ok", "service": "biometria", "version": app.version}
+
+
+@app.get("/health/ready")
+def health_ready(db: DBSession = Depends(get_db)):
     db.execute(select(1))
     return {"status": "ok", "service": "biometria", "version": app.version}
+
+
+@app.get("/health")
+def health(db: DBSession = Depends(get_db)):
+    return health_ready(db)
+
+
+@app.get("/version")
+def version():
+    return {
+        "app_version": app.version,
+        "release": os.getenv("RAILWAY_GIT_COMMIT_SHA")
+        or os.getenv("KINUA_RELEASE")
+        or "development",
+    }
 
 
 @app.post("/auth/login")
@@ -331,6 +352,19 @@ def get_assessment(
     return assessment_result(db, assessment_for(db, assessment_id, user))
 
 
+@app.get("/analyses/{analysis_id}/series")
+def get_analysis_series(
+    analysis_id: str,
+    user: m.User = Depends(current_user),
+    db: DBSession = Depends(get_db),
+):
+    analysis = db.get(m.Analysis, analysis_id)
+    if not analysis:
+        raise HTTPException(404, "Análise não encontrada.")
+    assessment_for(db, analysis.assessment_id, user)
+    return analysis_series(db, analysis.id)
+
+
 @app.patch("/assessments/{assessment_id}")
 def update_assessment(
     assessment_id: str,
@@ -512,6 +546,29 @@ def review(
     return row(finding)
 
 
+def compact_report_snapshot(snapshot):
+    compacted = set()
+
+    def compact_analysis(analysis):
+        identifier = analysis.get("id")
+        if identifier in compacted:
+            return
+        if identifier:
+            compacted.add(identifier)
+        frames = analysis.get("frames", [])
+        analysis["frame_count"] = len(frames)
+        analysis["frames"] = []
+        if frames:
+            analysis["series_deferred"] = True
+
+    for analysis in snapshot["assessment"].get("analyses", []):
+        compact_analysis(analysis)
+    for child in snapshot.get("protocol_children", []):
+        for analysis in child.get("analyses", []):
+            compact_analysis(analysis)
+    return snapshot
+
+
 @app.get("/assessments/{assessment_id}/report")
 def report(
     assessment_id: str,
@@ -524,7 +581,7 @@ def report(
     patient = patient_for(db, assessment.patient_id, user)
     snapshot = {
         "is_demo": db.get(m.Clinic, user.clinic_id).is_demo,
-        "assessment": assessment_result(db, assessment),
+        "assessment": assessment_result(db, assessment, include_video_series=True),
         "patient": row(patient),
         "professional": db.get(m.User, assessment.created_by).name,
     }
@@ -533,7 +590,7 @@ def report(
         for step in snapshot["assessment"]["assessment_protocol"]["steps"]:
             if step["child_assessment_id"]:
                 child = assessment_for(db, step["child_assessment_id"], user)
-                child_result = assessment_result(db, child)
+                child_result = assessment_result(db, child, include_video_series=True)
                 children.append(child_result)
                 snapshot["assessment"]["analyses"].extend(child_result["analyses"])
         snapshot["protocol_children"] = children
@@ -561,7 +618,7 @@ def report(
         assessment_id=assessment.id,
         created_by=user.id,
         sha256=hashlib.sha256(pdf).hexdigest(),
-        snapshot=snapshot,
+        snapshot=compact_report_snapshot(snapshot),
     )
     db.add(record)
     db.flush()

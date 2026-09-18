@@ -3,8 +3,8 @@ import asyncio
 from app.core.body_limit import BodyLimitMiddleware
 
 
-def test_chunked_body_is_rejected_before_parsing():
-    called = False
+def test_chunked_body_is_rejected_while_streaming():
+    started = False
     messages = []
     incoming = iter(
         [
@@ -14,8 +14,12 @@ def test_chunked_body_is_rejected_before_parsing():
     )
 
     async def app(scope, receive, send):
-        nonlocal called
-        called = True
+        nonlocal started
+        started = True
+        while True:
+            message = await receive()
+            if not message.get("more_body", False):
+                break
 
     async def receive():
         return next(incoming)
@@ -26,18 +30,28 @@ def test_chunked_body_is_rejected_before_parsing():
     asyncio.run(
         BodyLimitMiddleware(app, 5)({"type": "http", "method": "POST"}, receive, send)
     )
-    assert not called
+    assert started
     assert messages[0]["status"] == 413
 
 
-def test_bounded_body_preserves_payload():
+def test_bounded_body_preserves_streaming_chunks():
     received = []
+    incoming = iter(
+        [
+            {"type": "http.request", "body": b"ab", "more_body": True},
+            {"type": "http.request", "body": b"cd", "more_body": False},
+        ]
+    )
 
     async def app(scope, receive, send):
-        received.append(await receive())
+        while True:
+            message = await receive()
+            received.append(message)
+            if not message.get("more_body", False):
+                break
 
     async def receive():
-        return {"type": "http.request", "body": b"abcd", "more_body": False}
+        return next(incoming)
 
     async def send(message):
         pass
@@ -45,4 +59,4 @@ def test_bounded_body_preserves_payload():
     asyncio.run(
         BodyLimitMiddleware(app, 5)({"type": "http", "method": "POST"}, receive, send)
     )
-    assert received[0]["body"] == b"abcd"
+    assert [message["body"] for message in received] == [b"ab", b"cd"]

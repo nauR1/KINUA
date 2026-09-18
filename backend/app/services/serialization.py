@@ -33,7 +33,33 @@ def row(item):
     return data
 
 
-def analysis_result(db, analysis):
+def analysis_series(db, analysis_id):
+    frames = db.scalars(
+        select(PoseFrame)
+        .where(PoseFrame.analysis_id == analysis_id)
+        .order_by(PoseFrame.frame_index)
+    ).all()
+    by_frame = {f.id: [] for f in frames}
+    if frames:
+        for landmark in db.scalars(
+            select(PoseLandmark).where(PoseLandmark.frame_id.in_(by_frame))
+        ):
+            by_frame[landmark.frame_id].append(
+                {
+                    key: getattr(landmark, key)
+                    for key in ("name", "x", "y", "z", "visibility")
+                }
+            )
+    return [
+        {
+            **row(f),
+            "landmarks": by_frame[f.id],
+        }
+        for f in frames
+    ]
+
+
+def analysis_result(db, analysis, include_video_series=False):
     from ..models import ROMMeasurement
 
     result = row(analysis)
@@ -43,7 +69,8 @@ def analysis_result(db, analysis):
             select(ROMMeasurement).where(ROMMeasurement.analysis_id == analysis.id)
         )
     ]
-    result["media"] = row(db.get(AssessmentMedia, analysis.media_id))
+    media = db.get(AssessmentMedia, analysis.media_id)
+    result["media"] = row(media)
     result["media"].pop("storage_key", None)
     result["measurements"] = [
         row(x)
@@ -53,7 +80,6 @@ def analysis_result(db, analysis):
             .order_by(BiomechanicalMeasurement.key)
         )
     ]
-    result["findings"] = []
     findings = db.scalars(
         select(AttentionFinding)
         .where(AttentionFinding.analysis_id == analysis.id)
@@ -68,33 +94,16 @@ def analysis_result(db, analysis):
         ):
             reviews[review.finding_id].append(row(review))
     result["findings"] = [{**row(f), "reviews": reviews[f.id]} for f in findings]
-    frames = db.scalars(
-        select(PoseFrame)
-        .where(PoseFrame.analysis_id == analysis.id)
-        .order_by(PoseFrame.frame_index)
-    ).all()
-    by_frame = {f.id: [] for f in frames}
-    if frames:
-        for landmark in db.scalars(
-            select(PoseLandmark).where(PoseLandmark.frame_id.in_(by_frame))
-        ):
-            by_frame[landmark.frame_id].append(
-                {
-                    key: getattr(landmark, key)
-                    for key in ("name", "x", "y", "z", "visibility")
-                }
-            )
-    result["frames"] = [
-        {
-            **row(f),
-            "landmarks": by_frame[f.id],
-        }
-        for f in frames
-    ]
+    result["frames"] = (
+        analysis_series(db, analysis.id)
+        if include_video_series or not media.mime.startswith("video/")
+        else []
+    )
+    result["series_deferred"] = media.mime.startswith("video/") and not include_video_series
     return result
 
 
-def assessment_result(db, assessment):
+def assessment_result(db, assessment, include_video_series=False):
     from ..api_protocols import get_run, protocol_result
     from ..models import AssessmentProtocol, AssessmentStepResult, ROMSession
 
@@ -121,7 +130,7 @@ def assessment_result(db, assessment):
         )
     ]
     result["analyses"] = [
-        analysis_result(db, a)
+        analysis_result(db, a, include_video_series=include_video_series)
         for a in db.scalars(
             select(Analysis)
             .where(Analysis.assessment_id == assessment.id)

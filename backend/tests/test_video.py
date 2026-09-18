@@ -4,6 +4,7 @@ from test_api import patient
 
 from app import jobs
 from app import models as m
+from app.main import compact_report_snapshot
 from app.schemas import Landmark
 from app.vision.video import frames, probe
 
@@ -93,14 +94,28 @@ def test_worker_persists_series_report_and_immutability(
     result = auth.get("/assessments/" + a["id"]).json()
     assert result["jobs"][0]["state"] == "succeeded"
     analysis = result["analyses"][0]
-    assert len(analysis["frames"]) == 10
-    assert len(analysis["frames"][1]["landmarks"]) == len(landmarks)
+    assert analysis["frames"] == []
+    assert analysis["series_deferred"] is True
+    series = auth.get("/analyses/" + analysis["id"] + "/series")
+    assert series.status_code == 200
+    frames_result = series.json()
+    assert len(frames_result) == 10
+    assert len(frames_result[1]["landmarks"]) == len(landmarks)
     assert analysis["motion"]["phase_detection"]["cycles"] == []
     assert analysis["measurements"][0]["details"]["statistic"] == "mean"
     assert enqueue(auth, a, media).status_code == 409
     assert auth.get("/assessments/" + a["id"] + "/report").content.startswith(b"%PDF")
     with db() as session:
         assert len(list(session.scalars(select(m.Analysis)))) == 1
+        report = session.scalar(
+            select(m.Report)
+            .where(m.Report.assessment_id == a["id"])
+            .order_by(m.Report.created_at.desc())
+        )
+        stored_analysis = report.snapshot["assessment"]["analyses"][0]
+        assert stored_analysis["frames"] == []
+        assert stored_analysis["frame_count"] == 10
+        assert stored_analysis["series_deferred"] is True
     assert auth.post("/jobs/" + job["id"] + "/cancel").status_code == 409
 
 
@@ -173,4 +188,21 @@ def test_mov_container_upload_and_worker_pipeline(
     jobs.process_job(job_id, FixtureProvider)
     result = auth.get("/assessments/" + assessment["id"]).json()
     assert result["jobs"][0]["state"] == "succeeded"
-    assert len(result["analyses"][0]["frames"]) == 10
+    analysis = result["analyses"][0]
+    assert analysis["frames"] == []
+    assert analysis["series_deferred"] is True
+    assert len(auth.get("/analyses/" + analysis["id"] + "/series").json()) == 10
+
+
+def test_compact_report_snapshot_preserves_shared_protocol_frame_count():
+    analysis = {"id": "analysis-1", "frames": [{"frame_index": 0}, {"frame_index": 1}]}
+    snapshot = {
+        "assessment": {"analyses": [analysis]},
+        "protocol_children": [{"analyses": [analysis]}],
+    }
+    compacted = compact_report_snapshot(snapshot)
+    parent_analysis = compacted["assessment"]["analyses"][0]
+    child_analysis = compacted["protocol_children"][0]["analyses"][0]
+    assert parent_analysis["frames"] == []
+    assert parent_analysis["frame_count"] == 2
+    assert child_analysis["frame_count"] == 2

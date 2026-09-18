@@ -28,14 +28,15 @@ export default function MotionTimeline({
     overlay = useRef<HTMLCanvasElement>(null),
     synchronized = useRef<number | null>(null);
   const measurable = analysis.measurements.filter((m) => m.value !== null);
+  const frames = analysis.frames;
   const [key, setKey] = useState(
     measurable.some((m) => m.key === analysis.motion?.signal)
       ? analysis.motion!.signal
       : measurable[0]?.key || "",
   );
   const metric = analysis.measurements.find((m) => m.key === key);
-  const frame = analysis.frames[selected] || analysis.frames[0],
-    lastTime = analysis.frames.at(-1)?.timestamp_ms || 1;
+  const frame = frames[selected] || frames[0],
+    lastTime = frames.at(-1)?.timestamp_ms || 1;
   useEffect(() => {
     if (overlay.current && frame)
       drawSkeleton(
@@ -48,16 +49,16 @@ export default function MotionTimeline({
   function seek(index: number) {
     onSelect(index);
     if (video.current)
-      video.current.currentTime = analysis.frames[index].timestamp_ms / 1000;
+      video.current.currentTime = frames[index].timestamp_ms / 1000;
   }
   function sync() {
     if (!video.current) return;
     const time = video.current.currentTime * 1000;
     let closest = 0;
-    analysis.frames.forEach((f, i) => {
+    frames.forEach((f, i) => {
       if (
         Math.abs(f.timestamp_ms - time) <
-        Math.abs(analysis.frames[closest].timestamp_ms - time)
+        Math.abs(frames[closest].timestamp_ms - time)
       )
         closest = i;
     });
@@ -85,7 +86,7 @@ export default function MotionTimeline({
       ? key.replace("right_", "left_")
       : null;
   const values = (metricKey: string) =>
-    analysis.frames.map((f) => f.measurements?.values[metricKey] ?? null);
+    frames.map((f) => f.measurements?.values[metricKey] ?? null);
   const primary = values(key),
     secondary = partner ? values(partner) : [];
   const all = [...primary, ...secondary].filter((v): v is number => v !== null);
@@ -102,7 +103,7 @@ export default function MotionTimeline({
       }
       d +=
         (move ? "M" : "L") +
-        (40 + (analysis.frames[i].timestamp_ms / lastTime) * 820) +
+        (40 + (frames[i].timestamp_ms / lastTime) * 820) +
         "," +
         (180 - ((v - low) / span) * 140) +
         " ";
@@ -110,6 +111,22 @@ export default function MotionTimeline({
     });
     return d;
   }
+  if (!frames.length) {
+    return (
+      <section className="panel motion-panel motion-timeline">
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">SÉRIE TEMPORAL</span>
+            <h2>Vídeo e medidas sincronizados</h2>
+          </div>
+        </div>
+        <p className="muted" role="status">
+          Carregando série temporal…
+        </p>
+      </section>
+    );
+  }
+
   return (
     <section className="panel motion-panel motion-timeline">
       <div className="section-heading">
@@ -219,10 +236,10 @@ export default function MotionTimeline({
               ),
             ) * lastTime;
           let index = 0;
-          analysis.frames.forEach((f, i) => {
+          frames.forEach((f, i) => {
             if (
               Math.abs(f.timestamp_ms - t) <
-              Math.abs(analysis.frames[index].timestamp_ms - t)
+              Math.abs(frames[index].timestamp_ms - t)
             )
               index = i;
           });
