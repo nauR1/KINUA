@@ -1,6 +1,6 @@
 # Roadmap técnico — após KINUA 2.3.0
 
-Atualizado em 16/09/2026. Itens já concluídos não permanecem como “futuro”.
+Atualizado em 18/09/2026. Itens já concluídos não permanecem como “futuro”.
 
 ## Já entregue/operacional
 
@@ -13,7 +13,8 @@ Atualizado em 16/09/2026. Itens já concluídos não permanecem como “futuro�
 - tenant demo isolado;
 - storage S3 privado;
 - PostgreSQL persistente;
-- backup automático e restore drill real;
+- backup automático separado do processo PostgreSQL;
+- restore drill protegido e último ensaio real documentado;
 - isolamento cross-tenant de mídia/PDF;
 - CI backend/frontend e migrations;
 - bloqueio de crawlers (`robots/noindex`);
@@ -26,9 +27,10 @@ Atualizado em 16/09/2026. Itens já concluídos não permanecem como “futuro�
 3. MFA para `platform_admin` e, idealmente, administradores de clínica;
 4. observabilidade: erros, latência, fila, worker, 5xx, disco, backup e health;
 5. alertas operacionais e runbooks;
-6. formalizar RPO/RTO e retenção de backup/mídia;
+6. formalizar RPO/RTO e retenção de backup/mídia, habilitar pruning e repetir restore drill no head atual;
 7. pentest externo autorizado + reteste;
-8. load test com cenários de vídeo/ROM concorrentes.
+8. load test com cenários de vídeo/ROM concorrentes;
+9. mover o cron de backup para serviço repo-sourced dedicado quando o limite de recursos Railway permitir;
 
 ## P1 — qualidade mobile
 

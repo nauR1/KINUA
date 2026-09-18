@@ -1,7 +1,7 @@
-# Estado atual — KINUA 2.3.0
+# Estado atual — KINUA
 
-**Consolidação:** 16/09/2026  
-**SHA de aplicação verificado em produção:** `c21484f5ab07fdc9f9a8db61ba1e822d71f74e32`  
+**Consolidação:** 18/09/2026  
+**SHA de aplicação verificado em produção:** `975db156b538eed678144deb3a5d3be7b6883306`  
 **Ambiente:** Railway `production`
 
 Este documento é a referência atual do sistema. Auditorias e release notes mais antigas são evidências históricas e não devem ser usadas isoladamente para inferir o estado presente.
@@ -10,7 +10,7 @@ Este documento é a referência atual do sistema. Auditorias e release notes mai
 
 KINUA é uma plataforma web para apoio à avaliação fisioterapêutica, com cadastro de pacientes, foto/câmera/vídeo, landmarks, medições geométricas, análise temporal, Protocolos, ROM, revisão profissional, histórico e PDF. A plataforma também possui administração comercial, planos, expiração/suspensão, ambiente demo isolado e auditoria.
 
-A infraestrutura essencial de produção está operacional e foi ensaiada: frontend, backend, worker, PostgreSQL persistente e bucket S3 estão ativos; o banco sobreviveu a restart; backup real foi enviado ao S3; um PostgreSQL auxiliar descartável restaurou o backup do zero e recuperou 28 tabelas com Alembic `9e1609260000`.
+A infraestrutura essencial de produção está operacional: frontend, backend, worker, PostgreSQL persistente e bucket S3 estão ativos. Em 18/09/2026 o processo PostgreSQL foi separado da automação de backup; dois dumps reais foram validados com 28 tabelas e Alembic `a91809260001`. O restore drill completo mais recente continua sendo o de 16/09/2026, executado em alvo descartável no head anterior.
 
 **Isso não equivale a validação clínica ou liberação regulatória.** A precisão clínica, confiabilidade contra padrão de referência, enquadramento regulatório, governança LGPD e matriz física de dispositivos permanecem trabalhos separados.
 
@@ -21,20 +21,20 @@ A infraestrutura essencial de produção está operacional e foi ensaiada: front
 | Frontend | SUCCESS | Next.js standalone, healthcheck `/` |
 | Backend | SUCCESS | FastAPI, healthcheck `/health` aprovado |
 | Worker | SUCCESS | Python/MediaPipe/OpenCV, storage S3 |
-| PostgreSQL persistente | SUCCESS | volume persistente validado após restart |
-| PostgreSQL auxiliar | SUCCESS no drill | usado apenas como ambiente descartável de restauração |
-| Bucket `kinua-media` | ativo | put/get/delete/cleanup reais aprovados |
-| Backup | PASS | diário às 06:15 UTC + validação imediata |
-| Restore drill | PASS | 28 tabelas, migration `9e1609260000` |
+| PostgreSQL persistente | SUCCESS | processo somente PostgreSQL; mesmo volume persistente validado após restart |
+| Serviço `postgres` sem volume | SUCCESS | reaproveitado como cron de backup às 06:15 UTC |
+| Bucket `kinua-media` | ativo | mídia privada + prefixo de backup PostgreSQL |
+| Backup | PASS | dois dumps reais em 18/09; 28 tabelas, Alembic `a91809260001` |
+| Restore drill | histórico PASS | último drill completo em 16/09; repetir no head atual |
 | GitHub Actions | SUCCESS | workflow normal da `main` |
 
 Configuração de produção confirmada: `ENVIRONMENT=production`, `SECURE_COOKIES=true`, `ALLOW_DEMO_SEED=false`, `STORAGE_BACKEND=s3`. `DEMO_PASSWORD` não é usada como segredo de runtime para recriar conta automaticamente.
 
 ## Migration head
 
-Head esperado: **`9e1609260000`** (`9e160926_user_access_start.py`).
+Head esperado: **`a91809260001`** (`a9180926_scale_indexes.py`).
 
-A migration adiciona `users.access_starts_at` nullable. `NULL` significa herança da janela da clínica. Não há backfill destrutivo.
+A migration adiciona índices de escala para fila, histórico, pacientes, auditoria e sessões. Não recalcula medidas clínicas nem reescreve pacientes/avaliações.
 
 ## Acesso comercial
 
@@ -62,7 +62,7 @@ A migration adiciona `users.access_starts_at` nullable. `NULL` significa heranç
 | Revisão/PDF | implementado | decisão final permanece profissional |
 | Demo | isolado | não inserir dados reais |
 | Administração comercial | implementada | sem gateway/billing automático |
-| Backup/restore | ensaiado | ainda faltam metas formais de RPO/RTO e retenção |
+| Backup/restore | backup isolado e ensaiado | pruning desligado; restore drill do head atual ainda pendente |
 
 ## Visão computacional
 
@@ -81,7 +81,7 @@ Pendências prioritárias: repositório GitHub ainda público, `main` sem branch
 
 ## Testes
 
-No SHA `c21484f5...`, GitHub Actions concluiu com sucesso. A suíte backend corrente tem **218 testes** e Alembic round-trip/check aprovados. Frontend passou `prepare:vision`, TypeScript, lint/Prettier, unit tests e build de produção. Há E2E separados para acesso, demo, workflow clínico, vídeo, protocolos/ROM, câmera simulada e autosave.
+No SHA de aplicação `975db156...`, GitHub Actions concluiu com sucesso. A suíte backend corrente tem **219 testes** e Alembic round-trip/check aprovados. Frontend passou `prepare:vision`, TypeScript, lint/Prettier, unit tests e build de produção. Há E2E separados para acesso, demo, workflow clínico, vídeo, protocolos/ROM, câmera simulada e autosave.
 
 Resultados numéricos de documentos antigos devem ser lidos como históricos.
 
@@ -93,8 +93,9 @@ Itens antes listados como pendentes e hoje comprovados tecnicamente:
 - S3 real com leitura/escrita/exclusão;
 - worker usando `backend=s3`;
 - persistência do PostgreSQL após restart;
-- backup automático real;
-- restauração completa em banco descartável;
+- backup automático real e separado do processo PostgreSQL;
+- dois backups reais no head `a91809260001`;
+- restauração completa histórica em banco descartável;
 - vídeo/worker novamente funcional em produção;
 - compatibilidade MOV/QuickTime validada no pipeline real de testes;
 - `robots/noindex` publicado;
@@ -110,5 +111,6 @@ Itens antes listados como pendentes e hoje comprovados tecnicamente:
 6. teste físico estruturado em iPhone/Android, incluindo HEVC/H.265;
 7. carga, concorrência, observabilidade e alertas;
 8. pentest autorizado;
-9. definir e medir RPO/RTO, retenção e política de backups;
-10. manter documentação e matriz de versões sincronizadas com cada release.
+9. definir e medir RPO/RTO, habilitar política de retenção e repetir restore drill no head atual;
+10. mover o cron de backup para serviço dedicado/repo-sourced quando houver slot de infraestrutura;
+11. manter documentação e matriz de versões sincronizadas com cada release.

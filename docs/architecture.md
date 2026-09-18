@@ -1,4 +1,4 @@
-# Arquitetura e decisões — KINUA 2.3.0
+# Arquitetura e decisões — KINUA
 
 ## Visão geral
 
@@ -33,11 +33,11 @@ Fotos/webcam: a inferência inicial ocorre no navegador; o backend valida a estr
 - `backend/app/storage.py`: storage privado local/S3.
 - `backend/app/jobs.py`: fila durável no PostgreSQL e worker.
 - `backend/app/reports.py`: PDF.
-- `backend/migrations`: Alembic; head atual `9e1609260000`.
+- `backend/migrations`: Alembic; head atual `a91809260001`.
 
 ## Infraestrutura de produção
 
-Railway, região `ams`, com frontend, backend, worker, PostgreSQL persistente/serviço de backup e bucket S3. Frontend é o ponto público; backend/worker/banco devem permanecer privados. Healthchecks: `/` e `/health`.
+Railway, região `ams`, com frontend, backend, worker, PostgreSQL persistente, job cron de backup e bucket S3. O PostgreSQL persistente executa somente o servidor PostgreSQL no volume clínico; o backup é um processo curto e separado, sem volume, que lê o banco e grava no S3. Frontend é o ponto público; backend/worker/banco permanecem privados. Healthchecks: `/`, `/health/live` e `/health/ready`.
 
 ## Autenticação e autorização
 
@@ -60,8 +60,9 @@ Browser: `@mediapipe/tasks-vision 0.10.32`. Servidor: `mediapipe 0.10.35`. Ambos
 ## Resiliência
 
 - `ProcessingJob.run_token` isola tentativas e impede publicação tardia após cancel/retry.
-- backup PostgreSQL diário para S3;
-- restore drill real aprovado;
+- backup PostgreSQL diário para S3 executado fora do processo do banco;
+- dump validado com `pg_restore --list`, SHA-256, manifest, tamanho remoto e Alembic;
+- restore drill protegido por confirmação explícita e alvo descartável; último drill completo histórico aprovado;
 - storage S3 testado com put/get/delete;
 - migrations aplicadas em pre-deploy do backend.
 
@@ -70,6 +71,7 @@ Browser: `@mediapipe/tasks-vision 0.10.32`. Servidor: `mediapipe 0.10.35`. Ambos
 - frontend ainda funciona majoritariamente como aplicação de página única por estado, sem URL própria para toda avaliação;
 - lista de pacientes/usuários precisa evoluir para paginação server-side em escala;
 - worker não possui health endpoint externo dedicado;
+- o job de backup usa temporariamente um serviço auxiliar existente por limite de provisionamento do plano Railway;
 - fila usa PostgreSQL, suficiente no estágio atual, mas pode exigir fila/broker dedicado sob carga elevada;
 - landmarks de foto gerados no cliente não possuem verificação independente completa contra a imagem no servidor;
 - não existe isolamento entre profissionais dentro da mesma clínica;
