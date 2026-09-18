@@ -1,7 +1,6 @@
 import hashlib
 import os
 import secrets
-from copy import deepcopy
 from datetime import timedelta
 from typing import Literal
 
@@ -548,8 +547,6 @@ def review(
 
 
 def compact_report_snapshot(snapshot):
-    compact = deepcopy(snapshot)
-
     def compact_analysis(analysis):
         frames = analysis.get("frames", [])
         analysis["frame_count"] = len(frames)
@@ -557,12 +554,12 @@ def compact_report_snapshot(snapshot):
         if frames:
             analysis["series_deferred"] = True
 
-    for analysis in compact["assessment"].get("analyses", []):
+    for analysis in snapshot["assessment"].get("analyses", []):
         compact_analysis(analysis)
-    for child in compact.get("protocol_children", []):
+    for child in snapshot.get("protocol_children", []):
         for analysis in child.get("analyses", []):
             compact_analysis(analysis)
-    return compact
+    return snapshot
 
 
 @app.get("/assessments/{assessment_id}/report")
