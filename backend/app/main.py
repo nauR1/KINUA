@@ -43,7 +43,7 @@ from .reports import make_pdf
 from .repositories import assessment_for, audit, patient_for
 from .services.analysis import analyze
 from .services.comparison import compare
-from .services.serialization import assessment_result, row
+from .services.serialization import analysis_series, assessment_result, row
 from .storage import get_storage, media_prefix, normalize_image
 
 app = FastAPI(title="KINUA API", version="2.3.0")
@@ -331,6 +331,19 @@ def get_assessment(
     return assessment_result(db, assessment_for(db, assessment_id, user))
 
 
+@app.get("/analyses/{analysis_id}/series")
+def get_analysis_series(
+    analysis_id: str,
+    user: m.User = Depends(current_user),
+    db: DBSession = Depends(get_db),
+):
+    analysis = db.get(m.Analysis, analysis_id)
+    if not analysis:
+        raise HTTPException(404, "Análise não encontrada.")
+    assessment_for(db, analysis.assessment_id, user)
+    return analysis_series(db, analysis.id)
+
+
 @app.patch("/assessments/{assessment_id}")
 def update_assessment(
     assessment_id: str,
@@ -524,7 +537,7 @@ def report(
     patient = patient_for(db, assessment.patient_id, user)
     snapshot = {
         "is_demo": db.get(m.Clinic, user.clinic_id).is_demo,
-        "assessment": assessment_result(db, assessment),
+        "assessment": assessment_result(db, assessment, include_video_series=True),
         "patient": row(patient),
         "professional": db.get(m.User, assessment.created_by).name,
     }
@@ -533,7 +546,7 @@ def report(
         for step in snapshot["assessment"]["assessment_protocol"]["steps"]:
             if step["child_assessment_id"]:
                 child = assessment_for(db, step["child_assessment_id"], user)
-                child_result = assessment_result(db, child)
+                child_result = assessment_result(db, child, include_video_series=True)
                 children.append(child_result)
                 snapshot["assessment"]["analyses"].extend(child_result["analyses"])
         snapshot["protocol_children"] = children
