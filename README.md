@@ -6,7 +6,7 @@ Plataforma web para apoio à avaliação fisioterapêutica com pacientes, foto/w
 
 ## Produção
 
-Em 16/09/2026, frontend, backend e worker estavam `SUCCESS` no Railway no SHA `c21484f5ab07fdc9f9a8db61ba1e822d71f74e32`. PostgreSQL persistente, bucket S3, backup diário e restauração em ambiente descartável foram testados. O head Alembic atual é `9e1609260000`.
+Em 18/09/2026, frontend, backend e worker estavam `SUCCESS` no Railway no SHA `975db156b538eed678144deb3a5d3be7b6883306`. O PostgreSQL persistente foi separado da automação de backup, dois dumps reais foram validados após a mudança e o head Alembic atual é `a91809260001`. O último restore drill completo permanece o de 16/09/2026 e deve ser repetido no head atual.
 
 Isso comprova engenharia/infraestrutura, **não validação clínica ou liberação regulatória**.
 
@@ -67,7 +67,8 @@ Detalhes: [`docs/architecture.md`](docs/architecture.md).
 - ambiente demo isolado;
 - auditoria comercial/clínica;
 - storage S3 privado;
-- backup/restore operacional.
+- backup PostgreSQL isolado do processo do banco;
+- restore drill protegido e documentado.
 
 ## Instalação local
 
@@ -128,7 +129,7 @@ npm test
 npm run build
 ```
 
-No SHA de produção auditado em 16/09/2026, a suíte backend continha 218 testes e o workflow normal da `main` concluiu com sucesso. Números de auditorias antigas devem ser lidos como históricos.
+No SHA de aplicação `975db156...`, a suíte backend contém 219 testes e o workflow normal da `main` concluiu com sucesso. O CI também valida a imagem/scripts de operações PostgreSQL. Números de auditorias antigas devem ser lidos como históricos.
 
 E2E de escrita devem rodar somente contra banco/tenant sintético e isolado. Nunca apontar Playwright/pytest de escrita para pacientes reais.
 
@@ -140,7 +141,7 @@ Veja [`docs/privacy-security.md`](docs/privacy-security.md).
 
 ## Backup
 
-Backup PostgreSQL diário às 06:15 UTC para S3; restore drill real aprovado em banco descartável com 28 tabelas e Alembic `9e1609260000`.
+Backup PostgreSQL diário às 06:15 UTC para S3, executado fora do processo do banco. Em 18/09/2026 dois dumps reais passaram com 28 tabelas e Alembic `a91809260001`; o restore drill completo do head atual ainda precisa ser repetido.
 
 Veja [`docs/backup-recovery.md`](docs/backup-recovery.md).
 
