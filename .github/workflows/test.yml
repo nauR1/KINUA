@@ -40,3 +40,11 @@ jobs:
         working-directory: frontend
       - run: npm run prepare:vision && npm run typecheck && npm run lint && npm test && npm run build
         working-directory: frontend
+
+  postgres-ops:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sh -n ops/postgres-backup.sh
+      - run: sh -n ops/postgres-restore-drill.sh
+      - run: docker build -f infra/postgres-ops.Dockerfile -t kinua-postgres-ops:test .
