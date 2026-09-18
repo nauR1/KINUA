@@ -21,6 +21,9 @@ class StorageProvider(Protocol):
     def put(
         self, data: bytes, extension: str = ".jpg", prefix: str = "production/"
     ) -> tuple[str, str]: ...
+    def put_file(
+        self, source: Path, extension: str = ".jpg", prefix: str = "production/"
+    ) -> tuple[str, str]: ...
     def path(self, key: str) -> Path: ...
     def verified_path(
         self, key: str, expected_hash: str, expected_size: int
@@ -59,6 +62,22 @@ class LocalStorageProvider:
         with target.open("xb") as stream:
             stream.write(data)
         return key, hashlib.sha256(data).hexdigest()
+
+    def put_file(
+        self, source: Path, extension: str = ".jpg", prefix: str = "production/"
+    ) -> tuple[str, str]:
+        if extension not in (".jpg", ".mp4", ".mov", ".webm"):
+            raise ValueError("Extensão inválida")
+        validate_prefix(prefix)
+        key = prefix + str(uuid.uuid4()) + extension
+        target = self.path(key)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        digest = hashlib.sha256()
+        with source.open("rb") as input_stream, target.open("xb") as output_stream:
+            while chunk := input_stream.read(1024 * 1024):
+                digest.update(chunk)
+                output_stream.write(chunk)
+        return key, digest.hexdigest()
 
     def delete(self, key: str) -> None:
         self.path(key).unlink(missing_ok=True)
@@ -171,6 +190,23 @@ class S3StorageProvider(LocalStorageProvider):
                 503, "Armazenamento temporariamente indisponível."
             ) from None
         return key, hashlib.sha256(data).hexdigest()
+
+    def put_file(self, source, extension=".jpg", prefix="production/"):
+        if extension not in (".jpg", ".mp4", ".mov", ".webm"):
+            raise ValueError("Extensão inválida")
+        validate_prefix(prefix)
+        key = prefix + str(uuid.uuid4()) + extension
+        digest = hashlib.sha256()
+        with source.open("rb") as stream:
+            while chunk := stream.read(1024 * 1024):
+                digest.update(chunk)
+        try:
+            self.client.upload_file(str(source), self.bucket, key)
+        except (BotoCoreError, ClientError):
+            raise HTTPException(
+                503, "Armazenamento temporariamente indisponível."
+            ) from None
+        return key, digest.hexdigest()
 
     def path(self, key):
 
