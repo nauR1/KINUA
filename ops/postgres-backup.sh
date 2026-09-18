@@ -20,7 +20,8 @@ normalize_database_url() {
   esac
 }
 
-: "${DATABASE_URL:?DATABASE_URL is required}"
+BACKUP_DATABASE_URL="${BACKUP_DATABASE_URL:-${DATABASE_URL:-}}"
+: "${BACKUP_DATABASE_URL:?BACKUP_DATABASE_URL or DATABASE_URL is required}"
 : "${S3_ENDPOINT_URL:?S3_ENDPOINT_URL is required}"
 : "${S3_BUCKET:?S3_BUCKET is required}"
 
@@ -45,7 +46,7 @@ if [ "$BACKUP_KEEP_COUNT" -lt 1 ]; then
   exit 2
 fi
 
-DB_URL="$(normalize_database_url "$DATABASE_URL")"
+DB_URL="$(normalize_database_url "$BACKUP_DATABASE_URL")"
 TS="$(date -u +%Y%m%dT%H%M%SZ)"
 FILE="/tmp/kinua-${TS}.custom"
 SHA_FILE="${FILE}.sha256"
