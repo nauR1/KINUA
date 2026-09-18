@@ -177,6 +177,8 @@ export type Finding = {
 export type Analysis = {
   rom_measurements?: import("./protocols").ROMRecord[];
 
+  series_deferred?: boolean;
+
   id: string;
 
   media_id: string;
