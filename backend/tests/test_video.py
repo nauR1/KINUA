@@ -106,6 +106,15 @@ def test_worker_persists_series_report_and_immutability(
     assert auth.get("/assessments/" + a["id"] + "/report").content.startswith(b"%PDF")
     with db() as session:
         assert len(list(session.scalars(select(m.Analysis)))) == 1
+        report = session.scalar(
+            select(m.Report)
+            .where(m.Report.assessment_id == a["id"])
+            .order_by(m.Report.created_at.desc())
+        )
+        stored_analysis = report.snapshot["assessment"]["analyses"][0]
+        assert stored_analysis["frames"] == []
+        assert stored_analysis["frame_count"] == 10
+        assert stored_analysis["series_deferred"] is True
     assert auth.post("/jobs/" + job["id"] + "/cancel").status_code == 409
 
 
