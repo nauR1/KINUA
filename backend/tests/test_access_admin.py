@@ -1,4 +1,5 @@
 import io
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -509,6 +510,9 @@ class FakeS3:
 
     def put_object(self, **kw):
         self.objects[kw["Key"]] = kw["Body"]
+
+    def upload_file(self, filename, bucket, key):
+        self.objects[key] = Path(filename).read_bytes()
 
     def get_object(self, **kw):
         if kw["Key"] not in self.objects:
