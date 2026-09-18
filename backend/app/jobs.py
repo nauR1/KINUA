@@ -59,17 +59,26 @@ def process_job(job_id, provider_factory=MediaPipePoseProvider, expected_token=N
     provider = provider_factory()
     engine = ROMEngine(rom_session.definition) if rom_session else MotionEngine()
     records = []
+    last_heartbeat_at = 0.0
+    last_heartbeat_progress = -1.0
     try:
         for index, timestamp, rgb in frames(
             get_storage().verified_path(media.storage_key, media.sha256, media.size),
             options["fps"],
             media.metadata_json,
         ):
-            heartbeat(
-                job_id,
-                timestamp / (max(media.metadata_json["duration_seconds"], 1) * 1000),
-                run_token,
+            progress = timestamp / (
+                max(media.metadata_json["duration_seconds"], 1) * 1000
             )
+            now_monotonic = time.monotonic()
+            if (
+                last_heartbeat_progress < 0
+                or now_monotonic - last_heartbeat_at >= 2
+                or progress - last_heartbeat_progress >= 0.05
+            ):
+                heartbeat(job_id, progress, run_token)
+                last_heartbeat_at = now_monotonic
+                last_heartbeat_progress = progress
             error = ""
             try:
                 landmarks = provider.detect(rgb, round(timestamp))
@@ -249,10 +258,12 @@ def fail(job_id, message, run_token=None):
 def claim():
     with SessionLocal() as db:
         stale = db.scalars(
-            select(m.ProcessingJob).where(
+            select(m.ProcessingJob)
+            .where(
                 m.ProcessingJob.state == "running",
                 m.ProcessingJob.updated_at < m.now() - timedelta(minutes=5),
             )
+            .with_for_update(skip_locked=True)
         ).all()
         for job in stale:
             job.state = "failed"
@@ -260,22 +271,22 @@ def claim():
             job.updated_at = m.now()
             audit(db, db.get(m.User, job.owner_id), "video.interrupted", job.id)
         db.commit()
+
         candidate = db.scalar(
             select(m.ProcessingJob)
             .where(m.ProcessingJob.state == "pending")
             .order_by(m.ProcessingJob.created_at)
+            .limit(1)
+            .with_for_update(skip_locked=True)
         )
         if not candidate:
             return None
-        changed = db.execute(
-            update(m.ProcessingJob)
-            .where(
-                m.ProcessingJob.id == candidate.id, m.ProcessingJob.state == "pending"
-            )
-            .values(state="running", updated_at=m.now(), run_token=m.uid())
-        ).rowcount
+        candidate.state = "running"
+        candidate.updated_at = m.now()
+        candidate.run_token = m.uid()
+        identifier = candidate.id
         db.commit()
-        return candidate.id if changed else None
+        return identifier
 
 
 def main():
