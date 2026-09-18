@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { api, type Analysis } from "@/lib/api";
+import type { Analysis } from "@/lib/api";
 import { drawSkeleton } from "@/vision/draw";
 const phases: Record<string, string> = {
   sampled: "Amostra ROM",
@@ -28,8 +28,7 @@ export default function MotionTimeline({
     overlay = useRef<HTMLCanvasElement>(null),
     synchronized = useRef<number | null>(null);
   const measurable = analysis.measurements.filter((m) => m.value !== null);
-  const [frames, setFrames] = useState(analysis.frames),
-    [seriesError, setSeriesError] = useState("");
+  const frames = analysis.frames;
   const [key, setKey] = useState(
     measurable.some((m) => m.key === analysis.motion?.signal)
       ? analysis.motion!.signal
@@ -38,23 +37,6 @@ export default function MotionTimeline({
   const metric = analysis.measurements.find((m) => m.key === key);
   const frame = frames[selected] || frames[0],
     lastTime = frames.at(-1)?.timestamp_ms || 1;
-  useEffect(() => {
-    if (frames.length || !analysis.series_deferred) return;
-    let gone = false;
-    api<Analysis["frames"]>("/analyses/" + analysis.id + "/series")
-      .then((series) => {
-        if (!gone) {
-          setFrames(series);
-          setSeriesError("");
-        }
-      })
-      .catch((error) => {
-        if (!gone) setSeriesError((error as Error).message);
-      });
-    return () => {
-      gone = true;
-    };
-  }, [analysis.id, analysis.series_deferred, frames.length]);
   useEffect(() => {
     if (overlay.current && frame)
       drawSkeleton(
@@ -138,8 +120,8 @@ export default function MotionTimeline({
             <h2>Vídeo e medidas sincronizados</h2>
           </div>
         </div>
-        <p className={seriesError ? "error" : "muted"} role={seriesError ? "alert" : "status"}>
-          {seriesError || "Carregando série temporal…"}
+        <p className="muted" role="status">
+          Carregando série temporal…
         </p>
       </section>
     );
