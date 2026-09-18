@@ -547,7 +547,14 @@ def review(
 
 
 def compact_report_snapshot(snapshot):
+    compacted = set()
+
     def compact_analysis(analysis):
+        identifier = analysis.get("id")
+        if identifier in compacted:
+            return
+        if identifier:
+            compacted.add(identifier)
         frames = analysis.get("frames", [])
         analysis["frame_count"] = len(frames)
         analysis["frames"] = []
