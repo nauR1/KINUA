@@ -156,9 +156,17 @@ export default function Results({
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
     [frame, setFrame] = useState(0),
-    [region, setRegion] = useState("");
-  const analysis =
+    [region, setRegion] = useState(""),
+    [seriesByAnalysis, setSeriesByAnalysis] = useState<
+      Record<string, Analysis["frames"]>
+    >({});
+  const sourceAnalysis =
       assessment.analyses[Math.min(selected, assessment.analyses.length - 1)],
+    cachedSeries = sourceAnalysis ? seriesByAnalysis[sourceAnalysis.id] : undefined,
+    analysis =
+      sourceAnalysis && cachedSeries
+        ? { ...sourceAnalysis, frames: cachedSeries, series_deferred: false }
+        : sourceAnalysis,
     done = assessment.status === "completed";
   const baseline = useRef({
     notes: assessment.notes,
@@ -168,6 +176,26 @@ export default function Results({
     !done &&
     (notes !== baseline.current.notes ||
       conclusion !== baseline.current.conclusion);
+  useEffect(() => {
+    if (!sourceAnalysis?.series_deferred || seriesByAnalysis[sourceAnalysis.id])
+      return;
+    let gone = false;
+    api<Analysis["frames"]>("/analyses/" + sourceAnalysis.id + "/series")
+      .then((frames) => {
+        if (!gone)
+          setSeriesByAnalysis((current) => ({
+            ...current,
+            [sourceAnalysis.id]: frames,
+          }));
+      })
+      .catch((e) => {
+        if (!gone) setError((e as Error).message);
+      });
+    return () => {
+      gone = true;
+    };
+  }, [sourceAnalysis?.id, sourceAnalysis?.series_deferred, seriesByAnalysis]);
+
   useEffect(() => {
     onPending(dirty);
     const leave = (e: BeforeUnloadEvent) => {
