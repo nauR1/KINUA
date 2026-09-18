@@ -1,4 +1,5 @@
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import select, update
@@ -48,23 +49,32 @@ def upload_video(
     extension = Path(file.filename or "").suffix.lower()
     if extension not in (".mp4", ".mov", ".webm"):
         raise HTTPException(422, "Envie MP4, MOV ou WebM.")
-    data = file.file.read(settings().max_video_bytes + 1)
-    file.file.close()
-    if len(data) > settings().max_video_bytes:
-        raise HTTPException(413, "Limite de 100 MB.")
     storage = get_storage()
-    key, sha = storage.put(
-        data, extension, prefix=media_prefix(db.get(m.Clinic, user.clinic_id))
-    )
+    key = None
     try:
-        metadata = validate_upload(storage.path(key))
+        with TemporaryDirectory(prefix="kinua-video-upload-") as temp_dir:
+            staged = Path(temp_dir) / ("upload" + extension)
+            size = 0
+            with staged.open("wb") as target:
+                while chunk := file.file.read(1024 * 1024):
+                    size += len(chunk)
+                    if size > settings().max_video_bytes:
+                        raise HTTPException(413, "Limite de 100 MB.")
+                    target.write(chunk)
+            file.file.close()
+            metadata = validate_upload(staged)
+            key, sha = storage.put_file(
+                staged,
+                extension,
+                prefix=media_prefix(db.get(m.Clinic, user.clinic_id)),
+            )
         media = m.AssessmentMedia(
             assessment_id=assessment.id,
             owner_id=user.id,
             storage_key=key,
             sha256=sha,
             mime=metadata["mime"],
-            size=len(data),
+            size=size,
             width=metadata["width"],
             height=metadata["height"],
             view=view,
@@ -75,12 +85,19 @@ def upload_video(
         audit(db, user, "video.uploaded", media.id)
         db.commit()
     except ValueError as exc:
-        storage.delete(key)
+        if key:
+            storage.delete(key)
         raise HTTPException(422, str(exc))
     except Exception:
         db.rollback()
-        storage.delete(key)
+        if key:
+            storage.delete(key)
         raise
+    finally:
+        try:
+            file.file.close()
+        except Exception:
+            pass
     result = row(media)
     result.pop("storage_key")
     return result
