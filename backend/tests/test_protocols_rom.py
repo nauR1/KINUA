@@ -306,7 +306,9 @@ def test_rom_worker_history_plane_validation_review_and_scope(
     jobs.process_job(job["id"], Provider)
     result = auth.get(url).json()
     analysis = result["analyses"][0]
-    assert len(analysis["frames"]) == 10
+    assert analysis["frames"] == []
+    assert analysis["series_deferred"] is True
+    assert len(auth.get("/analyses/" + analysis["id"] + "/series").json()) == 10
     measure = analysis["rom_measurements"][0]
     assert measure["maximum"] == pytest.approx(120) and measure[
         "excursion"
