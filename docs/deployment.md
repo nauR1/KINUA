@@ -1,25 +1,48 @@
-# Implantação e operação — KINUA 2.3.0
+# Implantação e operação — KINUA
 
-**Estado verificado:** Railway production em 16/09/2026.
+**Estado verificado:** Railway production em 18/09/2026.
 
 Este documento descreve a topologia realmente usada. Não implica validação clínica/regulatória.
 
 ## Topologia atual
 
-Projeto Railway: `KINUA`.
+Projeto Railway: `KINUA`, região `ams`.
 
-Serviços de aplicação:
+1. `frontend` — `infra/frontend.Dockerfile`, Node 22, domínio público HTTPS, healthcheck `/`.
+2. `backend` — `infra/backend.Dockerfile`, FastAPI/Uvicorn, pre-deploy `alembic upgrade head`, healthcheck `/health`.
+3. `worker` — mesmo Dockerfile do backend, start `python -m app.jobs`.
+4. `kinua-backup-once` — **PostgreSQL persistente de produção**. O nome é legado. Usa `postgres:17-alpine`, volume `kinua-postgres-data` de 500 MB em `/var/lib/postgresql/data` e start `docker-entrypoint.sh postgres`.
+5. `postgres` — serviço sem volume reaproveitado como **cron de backup**, porque o plano Railway atual não permite provisionar outro serviço. Executa backup e termina; não atende tráfego da aplicação.
+6. bucket `kinua-media` — storage S3 privado, região `ams`.
 
-1. `frontend` — `infra/frontend.Dockerfile`, Node 22, Next.js standalone, uma réplica em `ams`, domínio público HTTPS, healthcheck `/`.
-2. `backend` — `infra/backend.Dockerfile`, Python 3.12, FastAPI/Uvicorn, uma réplica em `ams`, rede privada, pre-deploy `alembic upgrade head`, healthcheck `/health`.
-3. `worker` — mesmo Dockerfile do backend, start `python -m app.jobs`, uma réplica em `ams`, sem endpoint público.
-4. `kinua-backup-once` — **apesar do nome histórico**, é o PostgreSQL persistente que atende o KINUA nesta topologia, baseado em PostgreSQL 17 Alpine, com volume `kinua-postgres-data` de 500 MB montado em `/var/lib/postgresql/data` e automação de restore/backup.
-5. `postgres` — PostgreSQL 17 Alpine auxiliar/disposable usado para ensaios de restauração/DR; não tratar este serviço como a fonte persistente principal sem revalidar a configuração.
-6. bucket `kinua-media` — storage compatível com S3, região `ams`.
+Frontend, backend e worker estão publicados no SHA `975db156b538eed678144deb3a5d3be7b6883306` e ficaram `SUCCESS`.
 
-Frontend, backend e worker foram publicados no SHA `c21484f5ab07fdc9f9a8db61ba1e822d71f74e32` e ficaram `SUCCESS`.
+> O nome `kinua-backup-once` não representa mais sua função. Antes de qualquer operação de banco, identificar o serviço pelo volume `kinua-postgres-data`, não pelo nome.
 
-> **Atenção operacional:** os nomes `kinua-backup-once` e `postgres` não descrevem bem a função atual. Antes de qualquer manutenção de banco, confirme o volume montado e a `DATABASE_URL` do backend. Não reinicialize, restaure ou descarte um serviço apenas pelo nome exibido no Railway.
+## Mudança de 18/09/2026
+
+Antes desta fase, o processo do PostgreSQL persistente também:
+
+- instalava AWS CLI;
+- restaurava backup no boot dependendo de marker;
+- criava script de `pg_dump`;
+- iniciava `crond`;
+- executava backup imediato.
+
+Essa lógica foi removida do processo de produção.
+
+Agora:
+
+```text
+kinua-backup-once
+  └─ postgres + volume persistente
+
+postgres (sem volume)
+  └─ cron Railway 06:15 UTC
+      └─ pg_dump → validação → S3
+```
+
+Dois backups reais foram aprovados durante a migração, incluindo um após o restart do banco simplificado.
 
 ## Variáveis essenciais
 
@@ -40,88 +63,106 @@ S3_SECRET_ACCESS_KEY=...
 ALLOW_DEMO_SEED=false
 ```
 
-Não expor segredos como `NEXT_PUBLIC_*`. O frontend precisa apenas da URL privada do backend durante o build/rewrite.
+Job de backup:
 
-## Deploy
+```env
+BACKUP_DATABASE_URL=...
+BACKUP_PREFIX=backups/postgres
+BACKUP_KEEP_COUNT=30
+BACKUP_PRUNE_ENABLED=false
+S3_ENDPOINT_URL=...
+S3_REGION=...
+S3_BUCKET=kinua-media
+S3_ACCESS_KEY_ID=...
+S3_SECRET_ACCESS_KEY=...
+```
 
-Sequência recomendada para release:
+`BACKUP_DATABASE_URL` deve apontar para o PostgreSQL persistente. Não expor segredos em logs/documentação.
 
-1. confirmar backup recente e saúde do bucket;
-2. verificar jobs em execução e evitar troca de versão no meio de processamento crítico;
+## Deploy da aplicação
+
+1. confirmar backup recente;
+2. verificar jobs em execução;
 3. publicar commit aprovado na `main`;
-4. backend executa `alembic upgrade head` no pre-deploy;
-5. aguardar `/health` do backend;
+4. backend executa `alembic upgrade head`;
+5. aguardar healthcheck do backend;
 6. verificar worker;
 7. verificar frontend;
-8. executar smoke test sintético de login/fluxo mínimo;
-9. conferir SHA efetivamente publicado em cada serviço.
+8. conferir SHA efetivamente publicado.
 
-Nunca executar downgrade em produção para “corrigir” release. Rollback de aplicação deve respeitar compatibilidade de schema. Restore de banco é procedimento de desastre, não mecanismo comum de deploy.
+Nunca usar downgrade de schema em produção como rollback comum.
 
 ## Migration atual
 
-Head esperado: `9e1609260000`.
+Head esperado: `a91809260001`.
 
-Após qualquer alteração de schema, validar em banco descartável:
+O workflow valida:
 
 ```sh
 python -m alembic upgrade head
 python -m alembic check
 python -m alembic downgrade base
 python -m alembic upgrade head
-python -m alembic check
 ```
 
-Em produção, apenas `upgrade head`/`check` conforme plano de release; não usar o round-trip destrutivo.
+O round-trip destrutivo é somente para banco descartável de CI/QA.
 
 ## Storage S3
 
-O backend e o worker usam `STORAGE_BACKEND=s3`. Foi executado teste real com arquivo temporário: put, get, comparação do conteúdo, delete e confirmação de exclusão, todos aprovados.
+Backend e worker usam `STORAGE_BACKEND=s3`. Mídia é privada e sujeita a autorização de tenant.
 
-Chaves são privadas e continuam sujeitas à autorização de tenant. Não publicar bucket nem devolver URL pública de mídia clínica.
+O mesmo bucket contém atualmente o prefixo de backup PostgreSQL `backups/postgres/`. Isso é funcional, mas uma separação futura em bucket/credenciais dedicados para backup é recomendável quando o plano de infraestrutura permitir.
 
-Vídeo aceito: MP4, WebM ou MOV/QuickTime **quando o conteúdo é válido e decodificável**. Aceitar extensão não substitui validação de contêiner/decoder.
+## PostgreSQL persistente
 
-## Banco persistente
+O volume de produção permanece:
 
-O banco que atende o KINUA foi reiniciado em teste operacional; o volume foi remontado e os dados existentes foram reconhecidos sem reinicialização. O volume observado tinha 500 MB, com cerca de 0,111 GB usados na medição de 16/09/2026. Essa capacidade deve ser monitorada e ampliada antes de se aproximar do limite.
+- nome: `kinua-postgres-data`;
+- mount: `/var/lib/postgresql/data`;
+- tamanho observado: 500 MB;
+- serviço atual: `kinua-backup-once`.
 
-Na topologia verificada, esse volume está ligado ao serviço `kinua-backup-once`. Esse nome é legado e deve ser considerado candidato a renomeação planejada, depois de conferir que automações/referências não dependem do nome.
+No restart de 18/09/2026 o entrypoint detectou dados existentes e pulou inicialização. O banco fez recuperação automática de WAL devido ao encerramento não limpo do wrapper antigo e ficou pronto para conexões. Um backup posterior confirmou 28 tabelas e Alembic `a91809260001`.
 
-## Backup e desastre
+## Backup
 
-O backup automático é executado diariamente às **06:15 UTC** e enviado ao S3 em formato custom do `pg_dump`, acompanhado de SHA-256.
+Cron Railway: `15 6 * * *` UTC.
 
-Um drill de restauração real foi executado em PostgreSQL auxiliar descartável:
+O job:
 
-- backup baixado do S3;
-- restore do zero;
-- 28 tabelas recuperadas;
-- Alembic `9e1609260000`;
-- `clinics`, `users`, `patients` e `assessments` presentes;
-- resultado `KINUA_RESTORE_DRILL overall=PASS`.
+1. gera `pg_dump` custom;
+2. valida arquivo com `pg_restore --list`;
+3. consulta tabelas e Alembic;
+4. calcula SHA-256;
+5. envia dump + checksum + manifest;
+6. confirma tamanho remoto;
+7. termina.
 
-Detalhes operacionais em [`backup-recovery.md`](backup-recovery.md).
+O pruning existe no script, mas está desativado em produção até aprovação da política de retenção.
 
-## Healthchecks
+Detalhes: [`backup-recovery.md`](backup-recovery.md).
 
-- frontend: `/`
-- backend: `/health`, que também verifica acesso ao banco
-- worker: observar processo/logs e progresso dos jobs; não há health HTTP atualmente
+## Restore
 
-Recomendação: adicionar health/heartbeat explícito do worker ou métrica de último job/heartbeat para observabilidade externa.
+Restore nunca roda dentro do processo PostgreSQL persistente.
 
-## Local/Compose
+`ops/postgres-restore-drill.sh` exige alvo descartável e confirmação explícita. O último drill completo real foi em 16/09/2026 no head antigo; o drill deve ser repetido no head `a91809260001` quando houver slot de serviço descartável disponível.
 
-O Compose permanece útil para desenvolvimento. A realidade de produção, porém, é Railway + PostgreSQL + S3. Não usar as limitações de auditorias locais antigas para descrever o estado da produção atual.
+## Healthchecks e observabilidade
 
-## Riscos operacionais ainda abertos
+- frontend: `/`;
+- backend: `/health`, `/health/live`, `/health/ready`;
+- versão: `/version`;
+- worker: processo/logs e estado dos jobs;
+- PostgreSQL: logs e conectividade via backend/backup;
+- backup: estado da execução cron + linha `KINUA backup: PASS`.
 
-- definir RPO/RTO formais;
-- política de retenção e expurgo de backups;
-- alertas de disco, fila, falha de backup e erro 5xx;
-- separar ainda mais responsabilidades de banco persistente e automação de backup quando a escala exigir;
-- renomear serviços de banco de forma planejada para reduzir ambiguidade operacional;
-- teste de carga/concorrrência;
-- plano de incident response e rotação de segredos;
-- conferir periodicamente que todos os serviços estão no mesmo release esperado.
+## Limitações operacionais atuais
+
+- nomes de serviços de banco continuam históricos/ambíguos;
+- plano Railway atingiu o limite de serviços, impedindo um serviço dedicado adicional de backup/restore;
+- backup ainda compartilha o bucket de mídia;
+- pruning está desligado;
+- restore drill do head atual precisa ser repetido;
+- RPO/RTO formais ainda precisam ser aprovados;
+- alertas automáticos de falha de backup/disco/fila/5xx ainda precisam ser configurados.
