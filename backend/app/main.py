@@ -1,5 +1,7 @@
 import hashlib
+import os
 import secrets
+from copy import deepcopy
 from datetime import timedelta
 from typing import Literal
 
@@ -115,10 +117,30 @@ async def conflict(request, exc):
     )
 
 
-@app.get("/health")
-def health(db: DBSession = Depends(get_db)):
+@app.get("/health/live")
+def health_live():
+    return {"status": "ok", "service": "biometria", "version": app.version}
+
+
+@app.get("/health/ready")
+def health_ready(db: DBSession = Depends(get_db)):
     db.execute(select(1))
     return {"status": "ok", "service": "biometria", "version": app.version}
+
+
+@app.get("/health")
+def health(db: DBSession = Depends(get_db)):
+    return health_ready(db)
+
+
+@app.get("/version")
+def version():
+    return {
+        "app_version": app.version,
+        "release": os.getenv("RAILWAY_GIT_COMMIT_SHA")
+        or os.getenv("KINUA_RELEASE")
+        or "development",
+    }
 
 
 @app.post("/auth/login")
@@ -525,6 +547,24 @@ def review(
     return row(finding)
 
 
+def compact_report_snapshot(snapshot):
+    compact = deepcopy(snapshot)
+
+    def compact_analysis(analysis):
+        frames = analysis.get("frames", [])
+        analysis["frame_count"] = len(frames)
+        analysis["frames"] = []
+        if frames:
+            analysis["series_deferred"] = True
+
+    for analysis in compact["assessment"].get("analyses", []):
+        compact_analysis(analysis)
+    for child in compact.get("protocol_children", []):
+        for analysis in child.get("analyses", []):
+            compact_analysis(analysis)
+    return compact
+
+
 @app.get("/assessments/{assessment_id}/report")
 def report(
     assessment_id: str,
@@ -574,7 +614,7 @@ def report(
         assessment_id=assessment.id,
         created_by=user.id,
         sha256=hashlib.sha256(pdf).hexdigest(),
-        snapshot=snapshot,
+        snapshot=compact_report_snapshot(snapshot),
     )
     db.add(record)
     db.flush()
