@@ -162,7 +162,9 @@ export default function Results({
     >({});
   const sourceAnalysis =
       assessment.analyses[Math.min(selected, assessment.analyses.length - 1)],
-    cachedSeries = sourceAnalysis ? seriesByAnalysis[sourceAnalysis.id] : undefined,
+    cachedSeries = sourceAnalysis
+      ? seriesByAnalysis[sourceAnalysis.id]
+      : undefined,
     analysis =
       sourceAnalysis && cachedSeries
         ? { ...sourceAnalysis, frames: cachedSeries, series_deferred: false }
