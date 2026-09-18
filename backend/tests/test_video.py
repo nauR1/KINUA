@@ -4,6 +4,7 @@ from test_api import patient
 
 from app import jobs
 from app import models as m
+from app.main import compact_report_snapshot
 from app.schemas import Landmark
 from app.vision.video import frames, probe
 
@@ -191,3 +192,17 @@ def test_mov_container_upload_and_worker_pipeline(
     assert analysis["frames"] == []
     assert analysis["series_deferred"] is True
     assert len(auth.get("/analyses/" + analysis["id"] + "/series").json()) == 10
+
+
+def test_compact_report_snapshot_preserves_shared_protocol_frame_count():
+    analysis = {"id": "analysis-1", "frames": [{"frame_index": 0}, {"frame_index": 1}]}
+    snapshot = {
+        "assessment": {"analyses": [analysis]},
+        "protocol_children": [{"analyses": [analysis]}],
+    }
+    compacted = compact_report_snapshot(snapshot)
+    parent_analysis = compacted["assessment"]["analyses"][0]
+    child_analysis = compacted["protocol_children"][0]["analyses"][0]
+    assert parent_analysis["frames"] == []
+    assert parent_analysis["frame_count"] == 2
+    assert child_analysis["frame_count"] == 2
